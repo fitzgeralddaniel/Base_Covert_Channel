@@ -3,6 +3,7 @@
  * by Daniel Fitzgerald
  * Jan 2020
  *
+ * Program to provide TCP communications for Cobalt Strike using the External C2 feature.
  */
 
 #define _CRT_SECURE_NO_WARNINGS
