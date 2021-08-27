@@ -30,8 +30,9 @@ Move the resultant executable to your target machine, and then run it with the f
 ## CONSTRAINTS
 
 - This channel expects only one client per instance of server.py. Multiple clients communicating with the same server requires multiple instances of server.py running on different ports.
-- This channel does not disconnect its beacon connection. If the server goes down, the client will continue sending packet retransmissions to the dead IP address until the process is killed. This may pose stealth issues.
+- This channel does not disconnect its beacon connection. If the server goes down, the client will continue sending packet retransmissions to the dead IP address until the process is killed. (Unless there is a read error on the socket) This may pose stealth issues.
 - Once a connection is established, it keeps the TCP connection open until the client is terminated. This can result in extreamly long lasting TCP sessions.
+- Mudge defined max payload size as 512 \* 1024 and max buffer size as 1024 \* 1024.
 
 ## TODOS/IMPROVEMENTS
 
