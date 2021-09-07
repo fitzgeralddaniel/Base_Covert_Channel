@@ -53,3 +53,5 @@ The timeout and packet max size are defined in the code. If you change it, it is
 - A more efficient solution than "ack every packet" should be developed. One idea I had was be to have the recipient ACK a size packet, then allocate an array to keep track of the packets received for that payload. The recipient only sends an ACK once they receive all the data, and the sender retransmits everything if they don't receive an ACK.
 - Allow the user to control the timeout and packet size via commmand line arguments.
 - Start the sequence number on a randomly generated value. (Both the client and the server are configured to handle receiving an arbitrary sequence number, but they don't send randomized ones as of yet.)
+- Packets from the server to the client calculate the checksum incorrectly according to Wireshark. Possibly UDP Checksum Offloading.
+- When capturing the entire connection, Wireshark identifies the traffic as QUIC protocol. Unknown why this is.
