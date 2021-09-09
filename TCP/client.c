@@ -253,8 +253,8 @@ void main(int argc, char* argv[])
 		
 		if (read_size == 1)
 		{
-			printf("Finished sending, sleeping %d ms..\n", sleep);
-			Sleep(sleep);
+			printf("Finished sending, sleeping %d seconds..\n", sleep);
+			Sleep(sleep*1000);
 		}
 
 		sendData(sockfd, buffer, read_size);

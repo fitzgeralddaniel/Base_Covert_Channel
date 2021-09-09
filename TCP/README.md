@@ -7,13 +7,14 @@ This channel is configured to run on the default Teamserver port of 2222.
 
 To start the server, run the following command:
 
-> python3 [Name].py [Teamserver IP] [Python Server IP] [Port] [Pipename]
+> python3 [Name].py [Teamserver IP] [Python Server IP] [Port] [Pipename] [OPTIONAL:-tp TeamserverPort]
 
 - [Name] is the name of your Python server.
 - [Teamserver IP] is the IP of your Cobalt Strike teamserver.
 - [Python Server IP] is the IP of the machine you are running server.py on. (“0.0.0.0” has been found to work on Linux machines, though it is unknown if this behavior is consistent everywhere.)
 - [Port] is the port that the server listens on to communicate with the client over. This is not the same port that the Python server uses to communicate with the teamserver.
 - [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any valid pipename.  
+- [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.
 
 If you have the MinGW compiler installed, you may compile the client C code with the following command:
 
@@ -22,10 +23,11 @@ If you have the MinGW compiler installed, you may compile the client C code with
 Change the client exe name if desired.
 Move the resultant executable to your target machine, and then run it with the following command:
 
->./[Name].exe [Python Server IP] [Port] [Pipename]
+>./[Name].exe [Python Server IP] [Port] [Pipename] [Sleep]
 
 - [Name] is the name of your client executable.
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
+- [Sleep] is the sleep time (in seconds) to wait between check ins with the server.
 
 ## CONSTRAINTS
 
