@@ -55,7 +55,7 @@ class ExternalC2Controller:
         """
         len = struct.unpack("<I", data[0:3])
         body = data[4:]
-        return len, body
+        return len[0], body
     
     def base64(self, msg):
         """
@@ -137,7 +137,8 @@ class ExternalC2Controller:
             print("Recv failed.")
             return None
         len = struct.unpack("<I", data_length)
-        data = self._socketBeacon.recv(len)
+        # Unpack returns a tuple
+        data = self._socketBeacon.recv(len[0])
         return data
 
 
