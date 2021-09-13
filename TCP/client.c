@@ -122,13 +122,13 @@ int sendData(SOCKET sd, const char* data, DWORD len) {
 	iResult = send(sd, (char *)&len, 4, 0);
 	if (iResult == SOCKET_ERROR)
 	{
-		debug_print("Recv failed: %d\n", WSAGetLastError());
+		debug_print("Send failed: %d\n", WSAGetLastError());
 		return -1;
 	}
 	iResult = send(sd, data, len, 0);
 	if (iResult == SOCKET_ERROR)
 	{
-		debug_print("Recv failed: %d\n", WSAGetLastError());
+		debug_print("Send failed: %d\n", WSAGetLastError());
 		return -1;
 	}
 	return iResult;
