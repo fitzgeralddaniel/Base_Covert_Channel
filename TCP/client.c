@@ -91,7 +91,7 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
                 sizeof(timeout)) < 0)
         debug_print("%s", "setsockopt sndtimeout failed\n");
-		
+
 	// Connect to server.
 	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
@@ -121,8 +121,8 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
  * @param len Length of data to send
  * @return Number of bytes sent
 */
-int sendData(SOCKET sd, const char* data, DWORD len) {
-	int iResult;
+void sendData(SOCKET sd, const char* data, DWORD len) {
+	/*int iResult;
 	iResult = send(sd, (char *)&len, 4, 0);
 	if (iResult == SOCKET_ERROR)
 	{
@@ -136,6 +136,9 @@ int sendData(SOCKET sd, const char* data, DWORD len) {
 		return -1;
 	}
 	return iResult;
+	*/
+	send(sd, (char *)&len, 4, 0);
+	send(sd, data, len, 0);
 }
 
 
@@ -149,24 +152,27 @@ int sendData(SOCKET sd, const char* data, DWORD len) {
 */
 DWORD recvData(SOCKET sd, char * buffer, DWORD max) {
 	DWORD size = 0, total = 0, temp = 0;
-	int iResult;
+	//int iResult;
 
 	/* read the 4-byte length */
-	iResult = recv(sd, (char *)&size, 4, 0);
+	/*iResult = recv(sd, (char *)&size, 4, 0);
 	if (iResult == SOCKET_ERROR)
 	{
 		debug_print("Recv failed: %d\n", WSAGetLastError());
 		return -1;
 	}
+	*/
+	recv(sd, (char *)&size, 4, 0);
 
 	/* read in the result */
 	while (total < size) {
 		temp = recv(sd, buffer + total, size - total, 0);
-		if (temp == SOCKET_ERROR)
+		/*if (temp == SOCKET_ERROR)
 		{
 			debug_print("Recv failed: %d\n", WSAGetLastError());
 			return -1;
 		}
+		*/
 		total += temp;
 	}
 
@@ -321,12 +327,14 @@ void main(int argc, char* argv[])
 			Sleep(sleep*1000);
 		}
 
-		int send_size = sendData(sockfd, buffer, read_size);
+		/*int send_size = sendData(sockfd, buffer, read_size);
 		if (send_size < 0)
 		{
 			debug_print("%s", "sendData error, exiting\n");
 			break;
 		}
+		*/
+		sendData(sockfd, buffer, read_size);
 		//printf("Sent to TS\n");
 		debug_print("%s", "Sent to TS\n");
 		
