@@ -36,6 +36,7 @@
  *
  * @param ip A pointer to an array containing the IP address to connect to
  * @param port A pointer to an array containing the port to connect on
+ * @param timeout_sec An int to specify socket timeout
  * @return A socket handle for the connection
 */
 SOCKET create_socket(char* ip, char* port, int timeout_sec)
@@ -44,10 +45,6 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	SOCKET ConnectSocket = INVALID_SOCKET;
 	WSADATA wsaData;
 	struct addrinfo* result = NULL, * ptr = NULL, hints;
-	
-	struct timeval timeout;
-	timeout.tv_sec = timeout_sec;
-	timeout.tv_usec = 0;
 
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -84,13 +81,16 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 		return INVALID_SOCKET;
 	}
 
-	// Set socket timeout    
-	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
-                sizeof(timeout)) < 0)
-        debug_print("%s", "setsockopt rcvtimeout failed\n");
-	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
-                sizeof(timeout)) < 0)
-        debug_print("%s", "setsockopt sndtimeout failed\n");
+	// Set socket timeout
+	// Note: Windows timeout value is a DWORD in milliseconds, address passed to setsockopt() is const char *
+	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout_sec, sizeof(timeout_sec)) < 0) {
+			debug_print("%s", "setsockopt rcvtimeout failed\n");
+			return INVALID_SOCKET;
+		}
+	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_SNDTIMEO, (const char *)&timeout_sec, sizeof(timeout_sec)) < 0) {
+        	debug_print("%s", "setsockopt sndtimeout failed\n");
+			return INVALID_SOCKET;
+		}
 
 	// Connect to server.
 	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
@@ -247,7 +247,7 @@ void main(int argc, char* argv[])
 	sleep = atoi(argv[4]);
 
 	int TIMEOUT_SEC;
-	TIMEOUT_SEC = atoi(argv[5]);
+	TIMEOUT_SEC = atoi(argv[5])*1000;
 
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;
