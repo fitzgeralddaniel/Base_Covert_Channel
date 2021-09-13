@@ -44,10 +44,10 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	SOCKET ConnectSocket = INVALID_SOCKET;
 	WSADATA wsaData;
 	struct addrinfo* result = NULL, * ptr = NULL, hints;
-
-	struct timeval timeout;      
-    timeout.tv_sec = timeout_sec;
-    timeout.tv_usec = 0;
+	
+	struct timeval timeout;
+	timeout.tv_sec = timeout_sec;
+	timeout.tv_usec = 0;
 
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -96,6 +96,7 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	// Connect to server.
 	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
+		debug_print("%s", "Error at connect()\n");
 		closesocket(ConnectSocket);
 		ConnectSocket = INVALID_SOCKET;
 	}
