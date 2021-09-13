@@ -85,14 +85,13 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 	}
 
 	// Set socket timeout    
-    /*
 	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
                 sizeof(timeout)) < 0)
         debug_print("%s", "setsockopt rcvtimeout failed\n");
 	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
                 sizeof(timeout)) < 0)
         debug_print("%s", "setsockopt sndtimeout failed\n");
-	*/
+		
 	// Connect to server.
 	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
