@@ -117,8 +117,8 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
  * @param len Length of data to send
  * @return Number of bytes sent
 */
-void sendData(SOCKET sd, const char* data, DWORD len) {
-	/*int iResult;
+int sendData(SOCKET sd, const char* data, DWORD len) {
+	int iResult;
 	iResult = send(sd, (char *)&len, 4, 0);
 	if (iResult == SOCKET_ERROR)
 	{
@@ -132,9 +132,6 @@ void sendData(SOCKET sd, const char* data, DWORD len) {
 		return -1;
 	}
 	return iResult;
-	*/
-	send(sd, (char *)&len, 4, 0);
-	send(sd, data, len, 0);
 }
 
 
@@ -148,27 +145,24 @@ void sendData(SOCKET sd, const char* data, DWORD len) {
 */
 DWORD recvData(SOCKET sd, char * buffer, DWORD max) {
 	DWORD size = 0, total = 0, temp = 0;
-	//int iResult;
+	int iResult;
 
 	/* read the 4-byte length */
-	/*iResult = recv(sd, (char *)&size, 4, 0);
+	iResult = recv(sd, (char *)&size, 4, 0);
 	if (iResult == SOCKET_ERROR)
 	{
 		debug_print("Recv failed: %d\n", WSAGetLastError());
 		return -1;
 	}
-	*/
-	recv(sd, (char *)&size, 4, 0);
 
 	/* read in the result */
 	while (total < size) {
 		temp = recv(sd, buffer + total, size - total, 0);
-		/*if (temp == SOCKET_ERROR)
+		if (temp == SOCKET_ERROR)
 		{
 			debug_print("Recv failed: %d\n", WSAGetLastError());
 			return -1;
 		}
-		*/
 		total += temp;
 	}
 
@@ -312,14 +306,12 @@ void main(int argc, char* argv[])
 			Sleep(sleep*1000);
 		}
 
-		/*int send_size = sendData(sockfd, buffer, read_size);
+		int send_size = sendData(sockfd, buffer, read_size);
 		if (send_size < 0)
 		{
 			debug_print("%s", "sendData error, exiting\n");
 			break;
 		}
-		*/
-		sendData(sockfd, buffer, read_size);
 		debug_print("%s", "Sent to TS\n");
 		
 		read_size = recvData(sockfd, buffer, BUFFER_MAX_SIZE);
