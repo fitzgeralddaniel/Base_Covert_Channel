@@ -258,7 +258,7 @@ void main(int argc, char* argv[])
 		debug_print("%s", "payload buffer malloc failed!\n");
 		exit(1);
 	}
-	DWORD payload_size = recvData(sockfd, payload, BUFFER_MAX_SIZE);
+	DWORD payload_size = recvData(sockfd, payload, PAYLOAD_MAX_SIZE);
 	if (payload_size < 0)
 	{
 		debug_print("%s", "recvData error, exiting\n");

@@ -386,7 +386,7 @@ void main(int argc, char* argv[])
 		exit(1);
 	}
 
-	DWORD payload_size = recvData(&sock_set, payload, BUFFER_MAX_SIZE, &timeout_struct);
+	DWORD payload_size = recvData(&sock_set, payload, PAYLOAD_MAX_SIZE, &timeout_struct);
 	if (payload_size < 0)
 	{
 		printf("recvData error, exiting\n");
