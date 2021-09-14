@@ -2,7 +2,7 @@
 
 This project provides a UDP-based communication channel for Cobalt Strike. This is meant as a base for covert channels implemented in any UDP-based protocol.
 
-This channel guarantees in-order delivery delivery. It does this through sequence numbers and generic ACK packets. Full description is below the guide.
+This channel guarantees in-order delivery. It does this through sequence numbers and generic ACK packets. Full description is below the guide.
 
 This channel also assumes the network uses IPv4. TCP allows for protocol-agnostic sockets, but UDP does not. Changing the socket to IPv6 currently requires editing the code.
 
@@ -22,6 +22,8 @@ To start the server, run the following command:
 If you have the MinGW compiler installed, you may compile the client.c code with the following command:
 
 > i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32
+
+You can compile the debug version of the client with print statements by adding `-DDEBUG` to the end of the compile command
 
 Change the client exe name if desired.
 Move the resultant executable to your target machine, and then run it with the following command:
@@ -52,9 +54,10 @@ The timeout and packet max size are defined in the code. If you change it, it is
 
 ## TODOS/IMPROVEMENTS
 
-- UDP does not allow for protocol-agnostic sockets. A choice between IPv4 and IPv6 should be included as an argument passed to both programs.
-- A more efficient solution than "ack every packet" should be developed. One idea I had was be to have the recipient ACK a size packet, then allocate an array to keep track of the packets received for that payload. The recipient only sends an ACK once they receive all the data, and the sender retransmits everything if they don't receive an ACK.
+- UDP does not allow for protocol-agnostic sockets. A choice between IPv4 and IPv6 should be added as an argument passed to both programs.
+- A more efficient solution than "ack every packet" should be developed. One idea I had was to have the recipient ACK a size packet, then allocate an array to keep track of the packets received for that payload. The recipient only sends an ACK once they receive all the data, and the sender retransmits everything if they don't receive an ACK.
 - Allow the user to control the timeout and packet size via commmand line arguments.
 - Start the sequence number on a randomly generated value. (Both the client and the server are configured to handle receiving an arbitrary sequence number, but they don't send randomized ones as of yet.)
+- Roll over the sequence number once it reaches its max.
 - Packets from the server to the client calculate the checksum incorrectly according to Wireshark. Possibly UDP Checksum Offloading.
 - When capturing the entire connection, Wireshark identifies the traffic as QUIC protocol. Unknown why this is.
