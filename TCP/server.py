@@ -177,7 +177,7 @@ class ExternalC2Controller:
 
         # Send beacon payload to target
         self.sendToBeacon(tcpinfo, data)
-        current_beacon = beacon_addr
+        current_beacon_ip = beacon_addr[0]
 
         while True:
 
@@ -186,7 +186,7 @@ class ExternalC2Controller:
                 print("Disconnected from beacon")
                 self._socketBeacon, beacon_addr = self._socketServer.accept()
                 print("Connected to : {}".format(beacon_addr))
-                if current_beacon == beacon_addr:
+                if current_beacon_ip == beacon_addr[0]:
                     continue
                 else:
                     print("Error: new connection. Exiting..")
