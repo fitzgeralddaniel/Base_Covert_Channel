@@ -28,12 +28,10 @@ You can compile the debug version of the client with print statements by adding 
 Change the client exe name if desired.
 Move the resultant executable to your target machine, and then run it with the following command:
 
->./[Name].exe [Python Server IP] [Port] [Pipename] [Target IP] [Target Port] [Sleep]
+>./[Name].exe [Python Server IP] [Port] [Pipename] [Sleep]
 
 - [Name] is the name of your client executable.
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
-- [Target IP] is the IP address of the machine the client runs on.
-- [Target Port] is the port you wish to communicate through on the target.
 - [Sleep] is the sleep time (in seconds) to wait between check ins with the server.
 
 ## GUARANTEED DELIVERY DESCRIPTION
