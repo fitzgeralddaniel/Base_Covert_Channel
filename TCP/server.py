@@ -136,6 +136,7 @@ class ExternalC2Controller:
         except:
             print("Recv failed.")
             return None
+        print("RecvFromBeacon data_length: {}".format(data_length))
         len = struct.unpack("<I", data_length)
         # Unpack returns a tuple
         data = self._socketBeacon.recv(len[0])
