@@ -35,10 +35,9 @@ Move the resultant executable to your target machine, and then run it with the f
 ## CONSTRAINTS AND NOTES
 
 - This channel expects only one client per instance of server.py. Multiple clients communicating with the same server requires multiple instances of server.py running on different ports.
-- Once a connection is established, it keeps the TCP connection open until the client is terminated. This can result in extreamly long lasting TCP sessions.
+- The client closes the TCP connection, sleeps, then reopens the TCP connection. If there is a small sleep timer, this will result in a lot of short TCP sessions with the source port increasing by 1.
 - Note: Mudge defined max payload size as 512 \* 1024 and max buffer size as 1024 \* 1024.
 
 ## TODOS/IMPROVEMENTS
 
-- Close TCP connection when sleeping.
 - Handle multiple clients on one server.
