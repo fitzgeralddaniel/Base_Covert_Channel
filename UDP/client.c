@@ -15,7 +15,7 @@
 #define TIMEOUT_SEC  10 //number of seconds to wait before timeout. 
 
 #include <winsock2.h>
-#include <Ws2tcpip.h>
+#include <ws2tcpip.h>
 #include <stdio.h> 
 #include <stdlib.h>
 
