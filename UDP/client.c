@@ -381,6 +381,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 			return -1;
 		}
 		seqnum = *((DWORD*) packet);
+		debug_print("seqnum: %d\n", seqnum);
 		if (seqnum <= server_seqnum)
 		{
 			iResult = sendto(sd, "ACK", 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
@@ -396,7 +397,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 				server_seqnum++;
 				memcpy((buffer), (packet + 4), temp - 4);
 				total += temp - 4;
-				break;
+				continue;
 			}
 			else
 			{
@@ -404,6 +405,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 			}
 		}
 		_retries--;
+		debug_print("Retries: %d\n", _retries);
 		memset(packet, 0, PACKET_SIZE+4);	
 	}
 	if (_retries <= 0)
