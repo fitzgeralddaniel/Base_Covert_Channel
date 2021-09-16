@@ -309,7 +309,7 @@ class ExternalC2Controller:
 
         #Wait for payload
         time.sleep(1)
-
+        print("Start pipe dance")
         while True:
             data = self.recvFromBeacon()
             if data == None:
