@@ -415,8 +415,8 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 	}
 	free(packet);
 	free(sizePacket);
-	debug_print("Size: %d\t Temp: %d\n", size, temp);
-	return size;
+	debug_print("Size: %d\tTotal: %d\tTemp: %d\n", size, total, temp);
+	return total;
 
 }
 
