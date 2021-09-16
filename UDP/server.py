@@ -301,13 +301,14 @@ class ExternalC2Controller:
                     counter += 1
             if (not connected):
                 print("Failed 3-way handshake from {}".format(clientAddr))
-                
+
+        print("Handshake completed. Sending payload size {} to client.".format(len(payload)))  
 
         # Send beacon payload to target
         self.sendToBeacon(payload)
 
         #Wait for payload
-        time.sleep(5)
+        time.sleep(1)
 
         while True:
             data = self.recvFromBeacon()
