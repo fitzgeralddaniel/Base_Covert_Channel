@@ -132,6 +132,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 	int socketsReady = 0;
 	int iResult = 0;
 	int error = 0;
+	int SrvAddrSize = sizeof(SrvAddr);
 	int _retries = retries;
 	char* sizepacket = malloc(8);
 	if (sizepacket == NULL)
@@ -158,7 +159,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 				return(-1);
 			}
 		
-		iResult = recvfrom(sd, ackpacket, 3, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		iResult = recvfrom(sd, ackpacket, 3, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
 		if (iResult == SOCKET_ERROR)
 		{
 			error = WSAGetLastError();
@@ -234,7 +235,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 			
 			debug_print("sent: %d bytes\n", temp);
 			
-			iResult = recvfrom(sd, ackpacket, 3, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+			iResult = recvfrom(sd, ackpacket, 3, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
 			if (iResult == SOCKET_ERROR)
 			{
 				error = WSAGetLastError();
@@ -294,6 +295,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 	debug_print("%s", "Receiving Data\n");
 	DWORD size = 0, temp = 0, seqnum = 0;
 	int iResult = 0;
+	int SrvAddrSize = sizeof(SrvAddr);
 	int _retries = retries;
 	int error = 0;
 
@@ -306,7 +308,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 
 	/* read the 4-byte length */
 	while (_retries > 0) {
-		iResult = recvfrom(sd, sizePacket, 8, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		iResult = recvfrom(sd, sizePacket, 8, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
 		if (iResult == SOCKET_ERROR)
 		{
 			error = WSAGetLastError();
@@ -363,7 +365,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 	//TODO: Double check the logic here to make sure we can recv everything we need to.
 	// Old note said "No danger of reading more than a single packet, as UDP sockets store disjoint datagrams."
 	while (_retries > 0) {
-		temp = recvfrom(sd, packet, PACKET_SIZE+4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		temp = recvfrom(sd, packet, PACKET_SIZE+4, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
 		if (temp == SOCKET_ERROR)
 		{
 			error = WSAGetLastError();
@@ -426,6 +428,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 int threeWayHandshake(SOCKET sd, SOCKADDR_IN SrvAddr, int retries) {
 	int _retries = retries;
 	int iResult = 0;
+	int SrvAddrSize = sizeof(SrvAddr);
 	int error = 0;
 	char* synack = calloc(4, 1);
 	if (synack == NULL)
@@ -441,7 +444,7 @@ int threeWayHandshake(SOCKET sd, SOCKADDR_IN SrvAddr, int retries) {
 			free(synack);
 			return(-1);
 		}
-		iResult = recvfrom(sd, synack, 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		iResult = recvfrom(sd, synack, 4, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
 		if (iResult == SOCKET_ERROR)
 		{
 			error = WSAGetLastError();
