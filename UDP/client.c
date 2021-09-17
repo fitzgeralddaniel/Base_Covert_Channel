@@ -250,7 +250,7 @@ int sendData(SOCKET sd, const char* data, DWORD len, int retries) {
 				return(-1);
 			}
 			
-			debug_print("contents of ackpacket: %s\n", ackpacket);
+			// debug_print("contents of ackpacket: %s\n", ackpacket);
 			// Changed ACK to 123
 			if (*(ackpacket) == 0x31 && *(ackpacket+1) == 0x32 && *(ackpacket+2) == 0x33) {
 				my_seqnum++;
@@ -332,7 +332,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 			}
 			
 			if (seqnum == server_seqnum) {
-				debug_print("%s", "Seqnum matched, sent ACK (123)");
+				// debug_print("%s", "Seqnum matched, sent ACK (123)\n");
 				server_seqnum++;							//Note: under this implementation, there is a limit to the number of packets per connection.
 				size = *((DWORD*)(sizePacket + 4));			//Once the sequence number overflows, this breaks. 
 				break;
@@ -361,8 +361,6 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 	// Reset retries
 	_retries = retries;
 	/* read in the data */
-	//TODO: Double check the logic here to make sure we can recv everything we need to.
-	// Old note said "No danger of reading more than a single packet, as UDP sockets store disjoint datagrams."
 	while (_retries > 0 && total < size) {
 		temp = recv(sd, packet, PACKET_SIZE+4, 0);
 		if (temp == SOCKET_ERROR)
@@ -380,7 +378,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 			return -1;
 		}
 		seqnum = *((DWORD*) packet);
-		debug_print("seqnum: %d\n", seqnum);
+		// debug_print("seqnum: %d\n", seqnum);
 		if (seqnum <= server_seqnum)
 		{
 			iResult = send(sd, "123", 4, 0);
@@ -393,7 +391,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 			}
 			if (seqnum == server_seqnum)
 			{
-				debug_print("%s", "Seqnum matched, sent ACK (123)");
+				// debug_print("%s", "Seqnum matched, sent ACK (123)\n");
 				server_seqnum++;
 				memcpy((buffer + total), (packet + 4), temp - 4);
 				total += temp - 4;
@@ -415,7 +413,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 	}
 	free(packet);
 	free(sizePacket);
-	debug_print("Size: %d\tTotal: %d\tTemp: %d\n", size, total, temp);
+	// debug_print("Size: %d\tTotal: %d\tTemp: %d\n", size, total, temp);
 	return total;
 
 }
