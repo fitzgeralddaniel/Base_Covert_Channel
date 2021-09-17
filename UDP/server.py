@@ -142,7 +142,7 @@ class ExternalC2Controller:
             if (len(selectLists[0]) > 0 ):
                 ackFrame, addr = self._socketServer.recvfrom(3)
                 ackMessage = ackFrame.decode(errors="replace")
-                if (ackMessage == "ACK"):
+                if (ackMessage == "123"):
 #                    print("Length sent!")
                     pendingAck = False
                     self.server_seqnum += 1
@@ -159,7 +159,7 @@ class ExternalC2Controller:
                 if (len(selectLists[0]) > 0):
                     ackFrame, addr = self._socketServer.recvfrom(3)
                     ackMessage = ackFrame.decode(errors="replace")
-                    if (ackMessage == "ACK"):
+                    if (ackMessage == "123"):
                         total += packetSentLength - 4
                         pendingAck = False
                         self.server_seqnum += 1
@@ -229,7 +229,8 @@ class ExternalC2Controller:
     def ackIfCorrect(self, seqnum):
         # print("Inside ackIfCorrect")
         output = False
-        msg = "ACK".encode()
+        # Changed ACK to 123
+        msg = "123".encode()
         if (seqnum == self.client_seqnum):
             # print("Seqnum correct")
             self._socketServer.sendto(msg, self.clientAddr)
@@ -282,6 +283,7 @@ class ExternalC2Controller:
 
             #Send my seqneunce number
             #If an ACK arrives, we are connected!
+            #changed ACK to 123
             pendingAck = True
             counter = 0
             while (pendingAck and counter < 2):
@@ -290,7 +292,7 @@ class ExternalC2Controller:
                 if (len(selectLists[0]) > 0):
                     data, addr = self._socketServer.recvfrom(4)
                     self.server_seqnum += 1
-                    if (data.decode() != "ACK\x00"):
+                    if (data.decode() != "123\x00"):
                         print("Error in 3-way handshake?")
                         print(data.decode(errors="replace"))
                         exit()
