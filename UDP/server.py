@@ -174,7 +174,7 @@ class ExternalC2Controller:
                     if (ackMessage == "123"):
                         total += packetSentLength - 4
                         self.server_seqnum += 1
-                        break
+                        continue
             except TimeoutError:
                 _retries -= 1
                 print("Socket timed out, retires left:{}".format(_retries))
