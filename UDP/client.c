@@ -257,7 +257,8 @@ int sendData(SOCKET sd, const char* data, DWORD len, int retries) {
 				remaining = remaining - temp + 4;
 				break;
 			}
-			_retries--;
+			// Not sure why I had this..
+			//_retries--;
 			memset(ackpacket, 0, 4);
 			
 		}
