@@ -11,13 +11,16 @@ This channel is configured to run on the default Teamserver port of 2222.
 
 To start the server, run the following command:
 
-> python3 server.py [Teamserver IP] [Python Server IP] [Port] [Pipename] [OPTIONAL:-tp TeamserverPort]
+> python3 server.py [Teamserver IP] [Python Server IP] [Port] [Pipename] [Timeout] [Retries] [OPTIONAL:-tp TeamserverPort -r Restart]
 
 - [Teamserver IP] is the IP of your Cobalt Strike teamserver.
 - [Python Server IP] is the IP of the machine you are running server.py on. (“0.0.0.0” has been found to work on Linux machines, though it is unknown if this behavior is consistent everywhere.)
 - [Port] is the port that the server communicates with the client over. This is not the same port that the Python server uses to communicate with the teamserver.
 - [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any valid pipename.
+- [Timeout] is the number of seconds to set the socket timeout to.
+- [Retries] is the number of times to retry listening for a connection after a timeout occurs.
 - [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.  
+- [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N.
 
 If you have the MinGW compiler installed, you may compile the client.c code with the following command:
 
@@ -33,7 +36,7 @@ Move the resultant executable to your target machine, and then run it with the f
 - [Name] is the name of your client executable.
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
 - [Sleep] is the sleep time (in seconds) to wait between check ins with the server.
-- [Timeout] is the send/recv socket timeout option (in seconds) set by setsockopt().
+- [Timeout] is the number of seconds to set the socket timeout to.
 - [Retries] is the number of times to retry listening for a connection after a timeout occurs.
 
 ## GUARANTEED DELIVERY DESCRIPTION
