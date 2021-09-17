@@ -339,7 +339,7 @@ parser.add_argument('ts_ip', help="IP of teamserver (or redirector).")
 parser.add_argument('srv_ip', help="IP to bind to on server.")
 parser.add_argument('srv_port', type=int, help="Port number to bind to on server.")
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
-parser.add_argument('tiemout', type=int, help="The socket timeout option (in seconds) set by settimeout()")
+parser.add_argument('timeout', type=int, help="The socket timeout option (in seconds) set by settimeout()")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 #TODO: Troubleshoot why x64 didnt work..
 #parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
