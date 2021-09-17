@@ -148,7 +148,7 @@ class ExternalC2Controller:
                     if (ackMessage == "123"):
                         self.server_seqnum += 1
                         break
-            except TimeoutError:
+            except socket.timeout:
                 _retries -= 1
                 print("Socket timed out, retires left:{}".format(_retries))
             except Exception as e:
@@ -175,7 +175,7 @@ class ExternalC2Controller:
                         total += packetSentLength - 4
                         self.server_seqnum += 1
                         continue
-            except TimeoutError:
+            except socket.timeout:
                 _retries -= 1
                 print("Socket timed out, retires left:{}".format(_retries))
             except Exception as e:
@@ -212,7 +212,7 @@ class ExternalC2Controller:
                             # print("Struct unpacked, length: {}".format(dataLength))
                             self.client_seqnum += 1
                             break
-            except TimeoutError:
+            except socket.timeout:
                 _retries -= 1
                 print("Socket timed out, retires left:{}".format(_retries))
             except Exception as e:
@@ -245,7 +245,7 @@ class ExternalC2Controller:
                             data[total : (total+len(dataChunk)-4)] = dataChunk[4:]
                             total = (total + len(dataChunk)-4)
                         self.client_seqnum += 1
-            except TimeoutError:
+            except socket.timeout:
                 _retries -= 1
                 print("Socket timed out, retires left:{}".format(_retries))
             except Exception as e:
@@ -305,7 +305,7 @@ class ExternalC2Controller:
             #We get one: 
             try:
                 data, clientAddr = self._socketServer.recvfrom(4)
-            except TimeoutError:
+            except socket.timeout:
                 print("Socket timed out, looping..")
                 continue
             except Exception as e:
@@ -337,7 +337,7 @@ class ExternalC2Controller:
                         else:
                             connected = True
                             break
-                except TimeoutError:
+                except socket.timeout:
                     _retries -= 1
                     print("Socket timed out, retires left:{}".format(_retries))
                 except Exception as e:
