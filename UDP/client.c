@@ -331,6 +331,7 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 			}
 			
 			if (seqnum == server_seqnum) {
+				debug_print("%s", "Seqnum matched, sent ACK");
 				server_seqnum++;							//Note: under this implementation, there is a limit to the number of packets per connection.
 				size = *((DWORD*)(sizePacket + 4));			//Once the sequence number overflows, this breaks. 
 				break;
@@ -391,8 +392,9 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max, int retries) {
 			}
 			if (seqnum == server_seqnum)
 			{
+				debug_print("%s", "Seqnum matched, sent ACK");
 				server_seqnum++;
-				memcpy((buffer), (packet + 4), temp - 4);
+				memcpy((buffer + total), (packet + 4), temp - 4);
 				total += temp - 4;
 				continue;
 			}
@@ -435,6 +437,7 @@ int threeWayHandshake(SOCKET sd, int retries) {
 		return(-1);
 	}
 	while (_retries > 0) {
+		debug_print("In handshake, sending my_seqnum of %d\n", my_seqnum);
 		iResult = send(sd, (char *)&my_seqnum, 4, 0);
 		if (iResult == SOCKET_ERROR)
 		{
@@ -457,6 +460,7 @@ int threeWayHandshake(SOCKET sd, int retries) {
 			return(-1);
 		}
 		server_seqnum = *(DWORD*)(synack);
+		debug_print("recv server_seqnum of %d\n", server_seqnum);
 		server_seqnum++;
 		my_seqnum++;
 		break;
@@ -468,6 +472,7 @@ int threeWayHandshake(SOCKET sd, int retries) {
 		return(-1);
 	}
 	iResult = send(sd, "ACK", 4, 0);
+	debug_print("%s", "Sent ACK\n");
 	if (iResult == SOCKET_ERROR)
 	{
 		debug_print("sendto in threeWayHandshake failed with error %d\n", WSAGetLastError());
