@@ -157,7 +157,7 @@ class ExternalC2Controller:
                 return -1
             total = total + len(temp)
             data = data + temp
-            print("Total: {} Temp: {} Data: {}".format(total, len(temp), len(data)))
+            print("Total: {} Length: {} Temp: {} Data: {}".format(total, length, len(temp), len(data)))
         if length != len(data):
             print("WARNING: sent len {} does not equal bytes recv'd {}.".format(length, len(data)))
         return data
