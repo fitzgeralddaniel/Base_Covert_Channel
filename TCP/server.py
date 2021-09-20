@@ -148,7 +148,7 @@ class ExternalC2Controller:
         length = len_tup[0]
         # Unpack returns a tuple
         total = 0
-        data = bytearray(length)
+        data = b''
         while (total < length):
             try:
                 temp = self._socketBeacon.recv(length-total)
