@@ -122,7 +122,12 @@ class ExternalC2Controller:
         :param data: Data to send to beacon
         """
         frame = self.encode_frame(data)
-        self._socketBeacon.sendall(frame)
+        try:
+            self._socketBeacon.sendall(frame)
+        except Exception as e:
+            print("sendall() in sendToBeacon failed. Error: {}".format(e))
+            return -1
+        return None
 
 
     def recvFromBeacon(self, tcpinfo):
@@ -135,12 +140,19 @@ class ExternalC2Controller:
             data_length = self._socketBeacon.recv(4)
         except:
             print("Recv failed.")
-            return None
+            return -1
         if data_length == b'':
+            print("Empty data_length")
             return None
         len = struct.unpack("<I", data_length)
         # Unpack returns a tuple
-        data = self._socketBeacon.recv(len[0])
+        try:
+            data = self._socketBeacon.recv(len[0])
+        except Exception as e:
+            print("Recv data in recvFromBeacon failed. Error: {}".format(e))
+            return -1
+        if len[0] != len(data):
+            print("WARNING: sent len {} does not equal bytes recv'd {}.".format(len[0], len(data)))
         return data
 
 
