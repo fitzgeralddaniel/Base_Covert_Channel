@@ -207,6 +207,9 @@ class ExternalC2Controller:
                 else:
                     print("Error: new connection. Exiting..")
                     break
+            elif data < 0:
+                print("recvFromBeacon failed. Exiting")
+                break
             print("Received {} bytes from beacon and sending to TS".format(len(data)))
             self.send_to_ts(data)
 
