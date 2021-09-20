@@ -131,6 +131,10 @@ int sendData(SOCKET sd, const char* data, DWORD len) {
 		debug_print("Send failed: %d\n", WSAGetLastError());
 		return -1;
 	}
+	else if (iResult != len)
+	{
+		debug_print("WARNING: Sent %d bytes, len was %d!\n", iResult, len);
+	}
 	return iResult;
 }
 
@@ -164,6 +168,10 @@ DWORD recvData(SOCKET sd, char * buffer, DWORD max) {
 			return -1;
 		}
 		total += temp;
+	}
+	if (size != total)
+	{
+		debug_print("WARNING: Size is %d, total recv is %d\n", size, total);
 	}
 
 	return size;

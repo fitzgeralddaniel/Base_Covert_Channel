@@ -7,7 +7,7 @@ This channel is configured to run on the default Teamserver port of 2222.
 
 To start the server, run the following command:
 
-> python3 [Name].py [Teamserver IP] [Python Server IP] [Port] [Pipename] [OPTIONAL:-tp TeamserverPort]
+> python3 [Name].py [Teamserver IP] [Python Server IP] [Port] [Pipename] [OPTIONAL:-tp TeamserverPort -r Restart]
 
 - [Name] is the name of your Python server.
 - [Teamserver IP] is the IP of your Cobalt Strike teamserver.
@@ -15,6 +15,7 @@ To start the server, run the following command:
 - [Port] is the port that the server listens on to communicate with the client over. This is not the same port that the Python server uses to communicate with the teamserver.
 - [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any valid pipename.  
 - [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.
+- [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N.
 
 If you have the MinGW compiler installed, you may compile the client C code with the following command:
 
@@ -35,8 +36,7 @@ Move the resultant executable to your target machine, and then run it with the f
 ## CONSTRAINTS AND NOTES
 
 - This channel expects only one client per instance of server.py. Multiple clients communicating with the same server requires multiple instances of server.py running on different ports.
-- The client closes the TCP connection, sleeps, then reopens the TCP connection. If there is a small sleep timer, this will result in a lot of short TCP sessions with the source port increasing by 1.
-- Note: Mudge defined max payload size as 512 \* 1024 and max buffer size as 1024 \* 1024.
+- The client closes the TCP connection, sleeps, then reopens the TCP connection. If there is a small sleep timer, this will result in a lot of short TCP sessions with the source port increasing. If the link/path dies during this sleep the client will timeout (after sleeping and attempting to reconnect) and the server will get stuck on accept() waiting for the client to connect back in. You will need to restart the server to use it again.
 
 ## TODOS/IMPROVEMENTS
 

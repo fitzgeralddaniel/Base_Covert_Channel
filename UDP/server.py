@@ -374,7 +374,7 @@ class ExternalC2Controller:
 
 parser = argparse.ArgumentParser(description='Program to provide TCP communications for Cobalt Strike using the External C2 feature.',
                                  usage="\n"
-                                       "%(prog)s [TS_IP] [SRV_IP] [SRV_PORT] [PIPE_STR]"
+                                       "%(prog)s [TS_IP] [SRV_IP] [SRV_PORT] [PIPE_STR] [TIMEOUT] [RETRIES]"
                                        "\nUse '%(prog)s -h' for more information.")
 parser.add_argument('ts_ip', help="IP of teamserver (or redirector).")
 parser.add_argument('srv_ip', help="IP to bind to on server.")
