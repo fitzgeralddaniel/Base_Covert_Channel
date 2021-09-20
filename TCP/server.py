@@ -215,7 +215,8 @@ class ExternalC2Controller:
 
             data = self.recv_from_ts()
             print("Received {} bytes from TS and sending to beacon".format(len(data)))
-            self.sendToBeacon(tcpinfo, data)
+            if (self.sendToBeacon(tcpinfo, data) == -1):
+                break
         self._socketBeacon.close()
         self._socketServer.close()
         self._socketTS.close()
