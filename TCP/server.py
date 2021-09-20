@@ -144,15 +144,16 @@ class ExternalC2Controller:
         if data_length == b'':
             print("Empty data_length")
             return None
-        len = struct.unpack("<I", data_length)
+        len_tup = struct.unpack("<I", data_length)
+        length = len_tup[0]
         # Unpack returns a tuple
         try:
-            data = self._socketBeacon.recv(len[0])
+            data = self._socketBeacon.recv(length)
         except Exception as e:
             print("Recv data in recvFromBeacon failed. Error: {}".format(e))
             return -1
-        if len[0] != len(data):
-            print("WARNING: sent len {} does not equal bytes recv'd {}.".format(len[0], len(data)))
+        if length != len(data):
+            print("WARNING: sent len {} does not equal bytes recv'd {}.".format(length, len(data)))
         return data
 
 
