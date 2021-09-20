@@ -157,7 +157,6 @@ class ExternalC2Controller:
                 return -1
             total = total + len(temp)
             data = data + temp
-            print("Total: {} Length: {} Temp: {} Data: {}".format(total, length, len(temp), len(data)))
         if length != len(data):
             print("WARNING: sent len {} does not equal bytes recv'd {}.".format(length, len(data)))
         return data
@@ -200,7 +199,7 @@ class ExternalC2Controller:
 
             data = self.recvFromBeacon(tcpinfo)
             if data == None:
-                print("Disconnected from beacon")
+                print("Disconnected from beacon, likely due to sleep.")
                 self._socketBeacon, beacon_addr = self._socketServer.accept()
                 print("Connected to : {}".format(beacon_addr))
                 if current_beacon_ip == beacon_addr[0]:
@@ -208,13 +207,11 @@ class ExternalC2Controller:
                 else:
                     print("Error: new connection. Exiting..")
                     break
-            print("Received %d bytes from beacon" % len(data))
-
-            print("Sending %d bytes to TS" % len(data))
+            print("Received {} bytes from beacon and sending to TS".format(len(data)))
             self.send_to_ts(data)
 
             data = self.recv_from_ts()
-            print("Received %d bytes from TS and sending to beacon" % len(data))
+            print("Received {} bytes from TS and sending to beacon".format(len(data)))
             self.sendToBeacon(tcpinfo, data)
         self._socketBeacon.close()
         self._socketServer.close()
