@@ -529,10 +529,10 @@ void main(int argc, char* argv[])
 //TODO - add argument for IPv4 vs IPv6. TCP allows for protocol-agnostic sockets, UDP does not. 
 {
 	// Set connection info
-	if (argc != 7)
+	if (argc != 1)
 	{
 		debug_print("Incorrect number of args: %d\n", argc);
-		debug_print("Incorrect number of args: %s [SERVER_IP] [PORT] [PIPE_STR] [SLEEP] [TIMEOUT] [RETRIES]", argv[0]);
+		debug_print("Incorrect number of args: %s", argv[0]);
 		exit(0);
 	}
 
@@ -540,22 +540,27 @@ void main(int argc, char* argv[])
 	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 	// _set_abort_behavior(0,_WRITE_ABORT_MSG);
 
-	char* IP = argv[1];
-	char* PORT = argv[2];
+	//char* IP = argv[1];
+	char IP[50] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+	//char* PORT = argv[2];
+	char PORT[50] = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
 	my_seqnum = 0;
 	server_seqnum = 0;
 	
-	char pipe_str[50];
-	strncpy(pipe_str, argv[3], sizeof(pipe_str));
+	char pipe_str[50] = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+	//strncpy(pipe_str, argv[3], sizeof(pipe_str));
 
 	int sleep;
-	sleep = atoi(argv[4]);
+	//sleep = atoi(argv[4]);
+	sleep = atoi("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
 
 	int TIMEOUT;
-	TIMEOUT = atoi(argv[5])*1000;
+	//TIMEOUT = atoi(argv[5])*1000;
+	TIMEOUT = atoi("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")*1000;
 
 	int RETRIES;
-	RETRIES = atoi(argv[6]);
+	//RETRIES = atoi(argv[6]);
+	RETRIES = atoi("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;

