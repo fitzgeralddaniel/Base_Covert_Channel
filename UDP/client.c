@@ -529,10 +529,10 @@ void main(int argc, char* argv[])
 //TODO - add argument for IPv4 vs IPv6. TCP allows for protocol-agnostic sockets, UDP does not. 
 {
 	// Set connection info
-	if (argc != 7)
+	if (argc != 1)
 	{
 		debug_print("Incorrect number of args: %d\n", argc);
-		debug_print("Incorrect number of args: %s [SERVER_IP] [PORT] [PIPE_STR] [SLEEP] [TIMEOUT] [RETRIES]", argv[0]);
+		debug_print("Incorrect number of args: %s", argv[0]);
 		exit(0);
 	}
 
