@@ -26,9 +26,12 @@ You can compile the debug version of the client with print statements by adding 
 Change the client exe name if desired.
 Move the resultant executable to your target machine, and then run it with the following command:
 
->./[Name].exe [Python Server IP] [Port] [Pipename] [Sleep] [Timeout]
+>./[Name].exe
 
-- [Name] is the name of your client executable.
+Use the binary patcher to patch in arguments <https://github.com/fitzgeralddaniel/binary_patcher>
+
+>python3 bipa.py [input binary] [output binary] -a [Python Server IP] -b [Port] -c [Pipename] -d [Sleep] -e [Timeout]
+
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
 - [Sleep] is the sleep time (in seconds) to wait between check ins with the server. It hits this sleep when the beacon indicates it has nothing left to send back to the server and is just checking in.
 - [Timeout] is the send/recv socket timeout option (in seconds) set by setsockopt(). May remove in future.
