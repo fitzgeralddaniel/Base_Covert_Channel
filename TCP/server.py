@@ -232,13 +232,14 @@ parser.add_argument('srv_port', type=int, help="Port number to bind to on server
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 parser.add_argument('--restart', '-r', default="N", help="Sleep 10s then restart the server after a disconnect or exit (Y/N). Default is N.")
-#TODO: Troubleshoot why x64 didnt work..
-#parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
+parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
 tcpinfo = TCPinfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str)
 while True:
-    controller.run(tcpinfo, 'x86')
+    if(args.arch == 'x64'):
+        print('Ensure client is x64!')
+    controller.run(tcpinfo, args.arch)
     if (args.restart == "N"):
         print("Exiting")
         break

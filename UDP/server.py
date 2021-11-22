@@ -384,13 +384,14 @@ parser.add_argument('timeout', type=int, help="The socket timeout option (in sec
 parser.add_argument('retries', type=int, help="Number of times to retry listening for a connection after a timeout occurs.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 parser.add_argument('--restart', '-r', default="N", help="Sleep 10s then restart the server after a disconnect or exit (Y/N). Default is N.")
-#TODO: Troubleshoot why x64 didnt work..
-#parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
+parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
 socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str, args.timeout, args.retries)
 while True:
-    controller.run(socketInfo, 'x86')
+    if(args.arch == 'x64'):
+        print('Ensure client is x64!')
+    controller.run(socketInfo, args.arch)
     if (args.restart == "N"):
         print("Exiting")
         break

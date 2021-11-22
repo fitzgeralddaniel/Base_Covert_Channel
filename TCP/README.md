@@ -7,7 +7,7 @@ This channel is configured to run on the default Teamserver port of 2222.
 
 To start the server, run the following command:
 
-> python3 [Name].py [Teamserver IP] [Python Server IP] [Port] [Pipename] [OPTIONAL:-tp TeamserverPort -r Restart]
+> python3 [Name].py [Teamserver IP] [Python Server IP] [Port] [Pipename] [OPTIONAL:-tp TeamserverPort -a Arch -r Restart]
 
 - [Name] is the name of your Python server.
 - [Teamserver IP] is the IP of your Cobalt Strike teamserver.
@@ -15,11 +15,16 @@ To start the server, run the following command:
 - [Port] is the port that the server listens on to communicate with the client over. This is not the same port that the Python server uses to communicate with the teamserver.
 - [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any valid pipename.  
 - [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.
-- [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N.
+- [Arch] is the architecture to request from the teamserver for the beacon. It defaults to x86 and is an optional argument.
+- [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N and is an optional argument.
 
 If you have the MinGW compiler installed, you may compile the client C code with the following command:
 
 >i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32
+
+or 64-bit with:
+
+>x86_64-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32
 
 You can compile the debug version of the client with print statements by adding `-DDEBUG` to the end of the compile command
 
