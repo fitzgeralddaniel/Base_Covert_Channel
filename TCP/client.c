@@ -290,7 +290,7 @@ void main(int argc, char* argv[])
 		// Pipe str (i.e. "mIRC")
 		strcat(pipestr, pipe_str);
 		// Full string (i.e. "\\\\.\\pipe\\mIRC")
-		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, (DWORD)NULL, NULL);
+		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, NULL, NULL);
 	}
 	debug_print("%s", "Connected to pipe!!\n");
 
