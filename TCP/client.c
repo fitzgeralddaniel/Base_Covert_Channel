@@ -13,7 +13,7 @@
 #include <ws2tcpip.h>
 #include <stdio.h> 
 #include <stdlib.h>
-#include <wolfssl/wolfcrypt/aes.h>
+//#include <wolfssl/wolfcrypt/aes.h>
 #include <wolfssl/ssl.h>
 #include <wolfssl/options.h>
 
@@ -45,6 +45,7 @@
  * @param iv_pad_ciphertxt output buffer containing IV, PAD, then encrypted cipher text
  * @return Error code, 0 on success, -1 on failure
 */
+/*
 int AesEncrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* iv_pad_ciphertxt)
 {
 	byte iv[AES_BLOCK_SIZE];
@@ -114,6 +115,7 @@ int AesEncrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* i
 
 	return ret;
 }
+*/
 
 /**
  * Decrypt with AES CBC 256bit
@@ -126,6 +128,7 @@ int AesEncrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* i
  * @param cleartxt output buffer containing decrypted message
  * @return Error code, 0 on success, -1 on failure
 */
+/*
 int AesDecrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* cleartxt)
 {
 	byte iv[AES_BLOCK_SIZE];
@@ -173,6 +176,7 @@ int AesDecrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* c
 	free(cleartxt_padded);
 	return ret;
 }
+*/
 
 /**
  * Creates a socket connection in Windows
