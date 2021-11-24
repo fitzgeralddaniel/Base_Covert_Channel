@@ -17,6 +17,8 @@
 #include <wolfssl/ssl.h>
 #include <wolfssl/options.h>
 
+#define WOLFSSL_USER_IO
+
 // Mudge used these values in his example
 #define PAYLOAD_MAX_SIZE 512 * 1024
 #define BUFFER_MAX_SIZE 1024 * 1024
