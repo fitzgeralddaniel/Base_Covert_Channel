@@ -13,7 +13,6 @@
 #include <ws2tcpip.h>
 #include <stdio.h> 
 #include <stdlib.h>
-#include <openssl/evp.h>
 #include <wolfssl/wolfcrypt/aes.h>
 #include <wolfssl/ssl.h>
 #include <wolfssl/options.h>
