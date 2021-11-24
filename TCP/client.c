@@ -487,7 +487,7 @@ void main(int argc, char* argv[])
 		debug_print("%s", "payload buffer malloc failed!\n");
 		exit(1);
 	}
-	DWORD payload_size = recvData(sockfd, payload, PAYLOAD_MAX_SIZE);
+	DWORD payload_size = recvData(ssl, payload, PAYLOAD_MAX_SIZE);
 	if (payload_size < 0)
 	{
 		debug_print("%s", "recvData error, exiting\n");
@@ -556,7 +556,7 @@ void main(int argc, char* argv[])
 			wolfSSL_connect(ssl);
 		}
 
-		int send_size = sendData(sockfd, buffer, read_size);
+		int send_size = sendData(ssl, buffer, read_size);
 		if (send_size < 0)
 		{
 			debug_print("%s", "sendData error, exiting\n");
@@ -564,7 +564,7 @@ void main(int argc, char* argv[])
 		}
 		debug_print("%s", "Sent to TS\n");
 		
-		read_size = recvData(sockfd, buffer, BUFFER_MAX_SIZE);
+		read_size = recvData(ssl, buffer, BUFFER_MAX_SIZE);
 		if (read_size <= 0)
 		{
 			debug_print("%s", "recvData error, exiting\n");
