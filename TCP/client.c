@@ -1,6 +1,5 @@
 /**
  * client.c
- * by Daniel Fitzgerald
  *
  * Program to provide basic TCP communications for Cobalt Strike using the External C2 feature.
  */
@@ -13,9 +12,10 @@
 #include <ws2tcpip.h>
 #include <stdio.h> 
 #include <stdlib.h>
+#include <wolfssl/options.h>
+#include <wolfssl/wolfcrypt/settings.h>
 //#include <wolfssl/wolfcrypt/aes.h>
 #include <wolfssl/ssl.h>
-#include <wolfssl/options.h>
 
 #define WOLFSSL_USER_IO
 

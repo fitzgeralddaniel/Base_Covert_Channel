@@ -1,6 +1,5 @@
 /**
  * client.c
- * by Daniel Fitzgerald and Ian Roberts
  *
  * Program to provide UDP communications for Cobalt Strike using the External C2 feature.
  */
