@@ -544,6 +544,8 @@ void main(int argc, char* argv[])
 		if (read_size == 1)
 		{
 			debug_print("Finished sending, sleeping %d seconds..\n", sleep);
+			Sleep(sleep*1000);
+			/*
 			// Close TCP connection, sleep, open new TCP connection
 			wolfSSL_free(ssl);
 			closesocket(sockfd);
@@ -566,6 +568,7 @@ void main(int argc, char* argv[])
 			// Connect wolfssl to socket
 			wolfSSL_set_fd(ssl, sockfd);
 			wolfSSL_connect(ssl);
+			*/
 		}
 
 		int send_size = sendData(ssl, buffer, read_size);
