@@ -473,9 +473,31 @@ void main(int argc, char* argv[])
 		exit(1);
 	}
 	// Add cert to ctx
-	if (wolfSSL_CTX_load_verify_buffer(ctx, pem, sizeof(pem), SSL_FILETYPE_PEM) != SSL_SUCCESS)
+	int ret = wolfSSL_CTX_load_verify_buffer(ctx, pem, sizeof(pem), SSL_FILETYPE_PEM);
+	if (ret != SSL_SUCCESS)
 	{
 		debug_print("%s", "Pem load failed\n");
+		if (ret == SSL_BAD_FILETYPE)
+		{
+			debug_print("%s", "Bad filetype\n");
+		}
+		if (ret == SSL_BAD_FILE)
+		{
+			debug_print("%s", "Bad file\n");
+		}
+		if (ret == MEMORY_E)
+		{
+			debug_print("%s", "Out of memory condition\n");
+		}
+		if (ret == ASN_INPUT_E)
+		{
+			debug_print("%s", "Base16 decoding failed\n");
+		}
+		if (ret == BUFFER_E)
+		{
+			debug_print("%s", "chain buffer is biffer than the receiving buffer\n");
+		}
+		debug_print("%s", ret);
 		exit(1);
 	}
 	// Connect wolfssl to socket
