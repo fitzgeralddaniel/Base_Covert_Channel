@@ -16,6 +16,7 @@
 #include <wolfssl/wolfcrypt/settings.h>
 //#include <wolfssl/wolfcrypt/aes.h>
 #include <wolfssl/ssl.h>
+#include <wolfssl/wolfio.h>
 
 #define WOLFSSL_USER_IO
 

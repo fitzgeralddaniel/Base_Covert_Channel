@@ -157,9 +157,15 @@ class ExternalC2Controller:
         self._socketServer.bind((tcpinfo.srv_ip,tcpinfo.srv_port))
         self._socketServer.listen()
 
+        print("cert: {}".format(tcpinfo.cert))
+        print("key: {}".format(tcpinfo.key))
+        wolfssl.WolfSSL.enable_debug()
+        #context = wolfssl.SSLContext(wolfssl.PROTOCOL_TLSv1_2, server_side=True)
         context = wolfssl.SSLContext(wolfssl.PROTOCOL_TLSv1_2, server_side=True)
         context.load_cert_chain(tcpinfo.cert, tcpinfo.key)
+        context.verify_mode = wolfssl.CERT_NONE
         secure_sock = None
+        print("HERE")
 
         self._socketBeacon, beacon_addr = self._socketServer.accept()
         print("Connected to : {}".format(beacon_addr))
