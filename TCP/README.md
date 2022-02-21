@@ -49,6 +49,12 @@ Use the binary patcher to patch in arguments.
 
 - This channel expects only one client per instance of server.py. Multiple clients communicating with the same server requires multiple instances of server.py running on different ports.
 - The client closes the TCP connection, sleeps, then reopens the TCP connection. If there is a small sleep timer, this will result in a lot of short TCP sessions with the source port increasing. If the link/path dies during this sleep the client will timeout (after sleeping and attempting to reconnect) and the server will get stuck on accept() waiting for the client to connect back in. You will need to restart the server to use it again.
+- Create certs. Server gets server-cert.pem and server-key.pem. Client gets ca-cert.pem
+
+>openssl genrsa 2048 > ca-key.pem
+>openssl req -new -x509 -nodes -days 365000 -key ca-key.pem -out ca-cert.pem
+>openssl req -newkey rsa:2048 -nodes -days 365000 -keyout server-key.pem -out server-req.pem
+>openssl x509 -req -days 365000 -set_serial 01 -in server-req.pem -out server-cert.pem -CA ca-cert.pem -CAkey ca-key.pem
 
 ## TODOS/IMPROVEMENTS
 

@@ -179,6 +179,8 @@ class ExternalC2Controller:
             data = self.recvFromBeacon(secure_sock)
             if data == None:
                 print("Disconnected from beacon, likely due to sleep.")
+                secure_sock.close()
+                secure_sock = None
                 self._socketBeacon, beacon_addr = self._socketServer.accept()
                 print("Connected to : {}".format(beacon_addr))
                 secure_sock = context.wrap_socket(self._socketBeacon)
