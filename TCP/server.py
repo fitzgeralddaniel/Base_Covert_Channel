@@ -178,6 +178,7 @@ class ExternalC2Controller:
 
             data = self.recvFromBeacon(secure_sock)
             if data == None:
+                '''
                 print("Disconnected from beacon, likely due to sleep.")
                 secure_sock.close()
                 secure_sock = None
@@ -189,6 +190,9 @@ class ExternalC2Controller:
                 else:
                     print("Error: new connection. Exiting..")
                     break
+                '''
+                print("Disconnected from beacon. Exiting..")
+                break
             elif data == -1:
                 print("recvFromBeacon failed. Exiting")
                 break
