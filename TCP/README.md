@@ -59,6 +59,14 @@ Use the binary patcher to patch in arguments.
 >openssl req -newkey rsa:2048 -nodes -days 365000 -keyout server-key.pem -out server-req.pem
 >openssl x509 -req -days 365000 -set_serial 01 -in server-req.pem -out server-cert.pem -CA ca-cert.pem -CAkey ca-key.pem
 
+- Steps I used to set up wolfssl on kali once cloned
+
+> make distclean
+> ./autogen.sh
+> sudo ./configure CFLAGS="-DWIN64 -DMINGW -DWC_NO_HARDEN" --enable-debug --enable-rsa --enable-aes --enable-static --disable-shared --enable-dtls --host=x86_64 CC=x86_64-w64-mingw32-gcc LD=x86_64-w64-mingw32-ld LIBS="-lws2_32 -L/usr/x86_64-w64-mingw/lib -lwolfssl" --prefix=/usr/x86_64-w64-mingw32 --disable-harden --disable-examples
+> sudo make
+> sudo make install
+
 ## TODOS/IMPROVEMENTS
 
 - Handle multiple clients on one server.
