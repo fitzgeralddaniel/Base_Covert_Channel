@@ -24,7 +24,21 @@ To start the server, run the following command:
 - [Arch] is the architecture to request from the teamserver for the beacon. It defaults to x86 and is an optional argument.
 - [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N and is an optional argument.
 
-If you have the MinGW compiler installed, you may compile the client C code with the following command:
+Install MinGW
+
+>sudo apt install mingw-w64
+
+Install WolfSSL (need autoconf, automake, and libtool installed)
+
+>git clone https://github.com/wolfSSL/wolfssl.git
+>cd wolfssl
+>./autogen.sh
+>sudo ./configure CFLAGS="-DWIN64 -DMINGW -DWC_NO_HARDEN" --host=x86_64 CC=x86_64-w64-mingw32-gcc LD=x86_64-w64-mingw32-ld LIBS="-lws2_32 -L/usr/x86_64-w64-mingw32/lib" --prefix=/usr/x86_64-w64-mingw32 --enable-debug --enable-rsa --enable-aes --enable-static --disable-shared --disable-harden --disable-examples --disable-crypttests
+>sudo make
+>sudo make check
+>sudo make install
+
+Once you have the MinGW compiler installed, you may compile the client C code with the following command:
 
 >i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32 -static -lwsock32 -lwolfssl
 
