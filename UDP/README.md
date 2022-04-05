@@ -15,7 +15,7 @@ Requirements: Python3 (developed on 3.9.2) and wolfssl
 
 To start the server, run the following command:
 
-> python3 server.py [Teamserver IP] [Python Server IP] [Port] [Pipename] [Timeout] [Retries] [OPTIONAL:-tp TeamserverPort -a Arch -r Restart]
+> python3 server.py [Teamserver IP] [Python Server IP] [Port] [Pipename] [Timeout] [Retries] [Key] [OPTIONAL:-tp TeamserverPort -a Arch -r Restart]
 
 - [Teamserver IP] is the IP of your Cobalt Strike teamserver.
 - [Python Server IP] is the IP of the machine you are running server.py on. (“0.0.0.0” has been found to work on Linux machines, though it is unknown if this behavior is consistent everywhere.)
@@ -26,6 +26,7 @@ To start the server, run the following command:
 - [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.  
 - [Arch] is the architecture to request from the teamserver for the beacon. It defaults to x86 and is an optional argument.
 - [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N and is an optional argument.
+- [Key] AES key to encrypt the beacon that is initially sent. It must be the same as the client.
 
 If you have the MinGW compiler installed, you may compile the client.c code with the following command:
 
@@ -44,12 +45,13 @@ Move the resultant executable to your target machine, and then run it with the f
 
 Use the binary patcher to patch in arguments.
 
->python3 bipa.py [input binary] [output binary] -a [Python Server IP] -b [Port] -c [Pipename] -d [Sleep] -e [Timeout] -f [Retries]
+>python3 bipa.py [input binary] [output binary] -a [Python Server IP] -b [Port] -c [Pipename] -d [Sleep] -e [Timeout] -f [Retries] -g [Key]
 
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
 - [Sleep] is the sleep time (in seconds) to wait between check ins with the server.
 - [Timeout] is the number of seconds to set the socket timeout to.
 - [Retries] is the number of times to retry listening for a connection after a timeout occurs.
+- [Key] AES key to encrypt the beacon that is initially sent. It must be the same as the client.
 
 ## GUARANTEED DELIVERY DESCRIPTION
 
@@ -72,7 +74,7 @@ The timeout is defined by the operator. It is recommended that the client timeou
 ## TODOS/IMPROVEMENTS
 
 - UDP does not allow for protocol-agnostic sockets. A choice between IPv4 and IPv6 should be added as an argument passed to both programs.
-- A more efficient solution than "ack every packet" should be developed. One idea I had was to have the recipient ACK a size packet, then allocate an array to keep track of the packets received for that payload. The recipient only sends an ACK once they receive all the data, and the sender retransmits everything if they don't receive an ACK.
+- A more efficient solution than "ack every packet" should be developed. One idea is to have the recipient ACK a size packet, then allocate an array to keep track of the packets received for that payload. The recipient only sends an ACK once they receive all the data, and the sender retransmits everything if they don't receive an ACK.
 - Allow the user to control the packet size via commmand line arguments.
 - Start the sequence number on a randomly generated value. (Both the client and the server are configured to handle receiving an arbitrary sequence number, but they don't send randomized ones as of yet.)
 - Roll over the sequence number once it reaches its max.

