@@ -12,6 +12,11 @@
 #include <ws2tcpip.h>
 #include <stdio.h> 
 #include <stdlib.h>
+#include <wolfssl/options.h>
+#include <wolfssl/wolfcrypt/settings.h>
+#include <wolfssl/wolfcrypt/aes.h>
+#include <wolfssl/ssl.h>
+#include <wolfssl/wolfio.h>
 
 #define MAX 4096
 // Mudge used these values in his example
@@ -33,6 +38,148 @@
 
 static DWORD server_seqnum = 0;
 static DWORD my_seqnum = 0;
+
+/**
+ * Encrypt with AES CBC 256bit
+ * 
+ * @param aes pointer to the AES structure to modify
+ * @param key secret key to encrypt/decrypt
+ * @param key_size length of key
+ * @param buffer input buffer to encrypt
+ * @param len length of input buffer
+ * @param iv_pad_ciphertxt output buffer containing IV, PAD, then encrypted cipher text
+ * @return Error code, 0 on success, -1 on failure
+*/
+int AesEncrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* iv_pad_ciphertxt)
+{
+	byte iv[AES_BLOCK_SIZE];
+	WC_RNG rng;
+	int length = len;
+	int padCounter = 0;
+	int ret = 0;
+	int i = 0;
+
+	// pads the length until it evenly matches a block / increases pad number
+    while (length % AES_BLOCK_SIZE != 0) {
+        length++;
+        padCounter++;
+    }
+
+	char* cleartxt = malloc(length);
+	char* ciphertxt = malloc(length);
+
+	ret = wc_InitRng(&rng);
+	if (ret != 0)
+	{
+		debug_print("%s", "Failed to initialize random number generator\n");
+		return -1;
+	}
+
+	memcpy(cleartxt, buffer, len);
+
+	for (i = len; i < length; i++)
+	{
+		// Pads the added characters with the number of pads
+		cleartxt[i] = padCounter;
+	}
+
+	// Generate IV
+	ret = wc_RNG_GenerateBlock(&rng, iv, AES_BLOCK_SIZE);
+	if (ret != 0)
+	{
+		debug_print("%s", "Failed to generate rng block\n");
+		return -1;
+	}
+
+	// Set key
+	ret = wc_AesSetKey(aes, key, AES_BLOCK_SIZE, iv, AES_ENCRYPTION);
+	if (ret != 0)
+	{
+		debug_print("%s", "Failed to set aes key\n");
+		return -1;
+	}
+
+	// Encrypt message
+	ret = wc_AesCbcEncrypt(aes, ciphertxt, cleartxt, length);
+	if (ret != 0)
+	{
+		debug_print("%s", "Failed to encrypt message\n");
+		return -1;
+	}
+
+	// Need to free this elsewhere
+	iv_pad_ciphertxt = malloc(AES_BLOCK_SIZE + sizeof(padCounter) + length);
+	memcpy(iv_pad_ciphertxt, iv, AES_BLOCK_SIZE);
+	memcpy(iv_pad_ciphertxt, padCounter, sizeof(padCounter));
+	memcpy(iv_pad_ciphertxt, ciphertxt, length);
+
+	wc_FreeRng(&rng);
+	free(ciphertxt);
+	free(cleartxt);
+
+	return ret;
+}
+
+
+/**
+ * Decrypt with AES CBC 256bit
+ * 
+ * @param aes pointer to the AES structure to modify
+ * @param key secret key to encrypt/decrypt
+ * @param key_size length of key
+ * @param buffer input buffer to decrypt [IV|PAD|CIPHERTXT]
+ * @param len length of input buffer
+ * @param cleartxt output buffer containing decrypted message
+ * @return Error code, 0 on success, -1 on failure
+*/
+int AesDecrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* cleartxt)
+{
+	byte iv[AES_BLOCK_SIZE];
+	int ret = 0;
+	int i = 0;
+	// length of just ciphertxt
+	int length = len-AES_BLOCK_SIZE;
+	
+	char* ciphertxt = malloc(length);
+	char* cleartxt_padded = malloc(length);
+
+	for (i = 0; i < AES_BLOCK_SIZE; i++)
+	{
+		// Find iv from input buffer
+		iv[i] = buffer[i];
+	}
+
+	// Set key
+	ret = wc_AesSetKey(aes, key, AES_BLOCK_SIZE, iv, AES_DECRYPTION);
+	if (ret != 0)
+	{
+		debug_print("%s", "Failed to set decrypt key\n");
+		return -1;
+	}
+
+	// Copy just cipher text, free this elsewhere
+	memcpy(ciphertxt, buffer+AES_BLOCK_SIZE, length);
+	
+	// Decrypt message
+	ret = wc_AesCbcDecrypt(aes, cleartxt, ciphertxt, length);
+	if (ret != 0)
+	{
+		debug_print("%s", "Failed to decrypt message\n");
+		return -1;
+	}
+
+	if (buffer[AES_BLOCK_SIZE] != 0)
+	{
+		length -= ciphertxt[length-1];
+	}
+	cleartxt = malloc(length);
+	memcpy(cleartxt, cleartxt_padded, length);
+
+	free(ciphertxt);
+	free(cleartxt_padded);
+	return ret;
+}
+
 
 /**
  * Creates a socket connection in Windows
