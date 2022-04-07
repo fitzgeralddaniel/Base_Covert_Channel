@@ -13,11 +13,10 @@
 #include <stdio.h> 
 #include <stdlib.h>
 
-#include "aes.h"
-#include "base64.h"
+#include "../resources/aes.h"
+#include "../resources/base64.h"
 
-#define CBC 1
-#define MAX 4096
+#define CTR 1
 #define IV_MAX_SIZE 16
 // Mudge used these values in his example
 #define PAYLOAD_MAX_SIZE 512 * 1024
