@@ -359,7 +359,7 @@ parser.add_argument('retries', type=int, help="Number of times to retry listenin
 parser.add_argument('key', help="AES key to encrypt the beacon that is initially sent. It must be the same as the client.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 parser.add_argument('--restart', '-r', default="N", help="Sleep 10s then restart the server after a disconnect or exit (Y/N). Default is N.")
-parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x86', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
+parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x64', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
 socketInfo = SocketInfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str, args.timeout, args.retries, args.key)

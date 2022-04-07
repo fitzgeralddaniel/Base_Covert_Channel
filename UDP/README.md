@@ -9,9 +9,9 @@ This channel also assumes the network uses IPv4. TCP allows for protocol-agnosti
 To use the Robust UDP channel, load up Cobalt Strike and add a new External C2 listener.
 This channel is configured to run on the default Teamserver port of 2222.
 
-Requirements: Python3 (developed on 3.9.2) and wolfssl
+Requirements: Python3 (developed on 3.9.2) and PyCryptodome
 
-> pip3 install wolfssl
+> pip3 install pycryptodome
 
 To start the server, run the following command:
 
@@ -23,18 +23,18 @@ To start the server, run the following command:
 - [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any opsec appropriate pipe name approved for ops.
 - [Timeout] is the number of seconds to set the socket timeout to.
 - [Retries] is the number of times to retry listening for a connection after a timeout occurs.
+- [Key] AES key to encrypt the beacon that is initially sent. It must be the same as the client. (128 bit is 16 characters)
 - [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.  
-- [Arch] is the architecture to request from the teamserver for the beacon. It defaults to x86 and is an optional argument.
+- [Arch] is the architecture to request from the teamserver for the beacon. It defaults to x64 and is an optional argument.
 - [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N and is an optional argument.
-- [Key] AES key to encrypt the beacon that is initially sent. It must be the same as the client.
 
 If you have the MinGW compiler installed, you may compile the client.c code with the following command:
 
->i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32
+>i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c -lws2_32
 
 or 64-bit with:
 
->x86_64-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32
+>x86_64-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c -lws2_32
 
 You can compile the debug version of the client with print statements by adding `-DDEBUG` to the end of the compile command
 
