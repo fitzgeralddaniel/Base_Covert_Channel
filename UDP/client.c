@@ -599,7 +599,7 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	char * iv = (char *)malloc(IV_MAX_SIZE);
+	char * iv = (char *)calloc(IV_MAX_SIZE, sizeof(char));
 	if (iv == NULL)
 	{
 		debug_print("%s", "iv malloc failed!\n");
@@ -607,7 +607,7 @@ int main(int argc, char* argv[])
 		free(payload);
 		return 0;
 	}
-	char * ct = (char *)malloc(BUFFER_MAX_SIZE);
+	char * ct = (char *)calloc(BUFFER_MAX_SIZE, sizeof(char));
 	if (ct == NULL)
 	{
 		debug_print("%s", "ct malloc failed!\n");
@@ -616,7 +616,7 @@ int main(int argc, char* argv[])
 		free(payload);
 		return 0;
 	}
-	char * b64iv = (char *)malloc(IV_MAX_SIZE*2);
+	char * b64iv = (char *)calloc(IV_MAX_SIZE*2, sizeof(char));
 	if (b64iv == NULL)
 	{
 		debug_print("%s", "b64ct malloc failed!\n");
@@ -626,7 +626,7 @@ int main(int argc, char* argv[])
 		free(payload);
 		return 0;
 	}
-	char * b64ct = (char *)malloc(BUFFER_MAX_SIZE);
+	char * b64ct = (char *)calloc(BUFFER_MAX_SIZE, sizeof(char));
 	if (b64ct == NULL)
 	{
 		debug_print("%s", "b64ct malloc failed!\n");
