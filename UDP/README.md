@@ -30,11 +30,11 @@ To start the server, run the following command:
 
 If you have the MinGW compiler installed, you may compile the client.c code with the following command:
 
->i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c base64.c -lws2_32
+>i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c base64.c -lws2_32 -static
 
 or 64-bit with:
 
->x86_64-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c base64.c -lws2_32
+>x86_64-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c base64.c -lws2_32 -static
 
 You can compile the debug version of the client with print statements by adding `-DDEBUG` to the end of the compile command
 

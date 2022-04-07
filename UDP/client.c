@@ -684,8 +684,7 @@ int main(int argc, char* argv[])
 		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	}
 	debug_print("%s", "Connected to pipe!!\n");
-	free(iv);
-	free(ct);
+
 	// Mudge used 1MB max in his example, this may be because SMB beacons are only able to send 1MB of data within each response.
 	char * buffer = (char *)malloc(BUFFER_MAX_SIZE);
 	if (buffer == NULL)
