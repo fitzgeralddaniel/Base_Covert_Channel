@@ -692,8 +692,6 @@ int main(int argc, char* argv[])
 		debug_print("%s", "buffer malloc failed!\n");
 		closesocket(sockfd);
 		CloseHandle(beaconPipe);
-		free(iv);
-		free(ct);
 		free(payload);
 		return 0;
 	}
