@@ -320,9 +320,6 @@ class ExternalC2Controller:
         ct_bytes = cipher.encrypt(payload)
         nonce = b64encode(cipher.nonce)
         ct = b64encode(ct_bytes)
-        #nonce = cipher.nonce
-        #ct = ct_bytes
-        print("Nonce: {} \nCT: {}".format(nonce, ct[0:10]))
         self.sendToBeacon(nonce)
         self.sendToBeacon(ct)
 
