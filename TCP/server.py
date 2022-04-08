@@ -149,8 +149,13 @@ class ExternalC2Controller:
         payload = self.recv_from_ts()
 
         # Now that we have our beacon to send, wait for a connection from our target
-        self._socketServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socketServer.bind((tcpinfo.srv_ip,tcpinfo.srv_port))
+        addr = (tcpinfo.srv_ip, tcpinfo.srv_port)
+        try:
+            self._socketServer = socket.create_server(addr, family=socket.AF_INET6, backlog=0, reuse_port=True, dualstack_ipv6=True)
+        except:
+            print("Failed to create server. Exiting.")
+            return
+       
         self._socketServer.listen()
         self._socketBeacon, beacon_addr = self._socketServer.accept()
         print("Connected to : {}".format(beacon_addr))
